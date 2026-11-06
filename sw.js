@@ -1,6 +1,6 @@
 // Enkel offline-cache: appen fungerer uten nett (unntatt Claude-coachen).
-const CACHE = 'treningsdagbok-v1';
-const FILES = ['./', './index.html', './styles.css', './app.js', './data.js', './charts.js', './coach.js', './icon.svg', './manifest.webmanifest'];
+const CACHE = 'treningsdagbok-v2';
+const FILES = ['./', './index.html', './styles.css', './app.js', './data.js', './charts.js', './coach.js', './myplan.js', './icon.svg', './manifest.webmanifest'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)));

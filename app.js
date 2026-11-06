@@ -2,8 +2,10 @@ import {
   getState, save, replaceState, resetAll, uid, today, fmtDate, daysAgo, weekdayName, isoWeek,
   parseTime, fmtTime, splitPer500, rowWatt, wattFromSplit, e1rm, exerciseHistory, allExerciseNames,
   suggestNext, describeSets, fmtNum, foodTotals, generateTips, buildSnapshot,
-  WEEKDAYS, MEALS, ROW_TYPES, DEFAULT_PLAN,
+  WEEKDAYS, MEALS, ROW_TYPES, DEFAULT_PLAN, toISODate, rowWeek, rowSessionFor, scheduleFor,
+  isEasy, EASY_SPLIT, weightRate,
 } from './data.js';
+import { PROTEIN_ROLLS } from './myplan.js';
 import { lineChart, barChart } from './charts.js';
 import { askClaude, SYSTEM_PROMPT, extractJsonBlocks, isPlan, isMealPlan } from './coach.js';
 
@@ -39,7 +41,7 @@ function toast(msg) {
   t.textContent = msg;
   t.hidden = false;
   clearTimeout(toast._t);
-  toast._t = setTimeout(() => (t.hidden = true), 2400);
+  toast._t = setTimeout(() => (t.hidden = true), msg.length > 45 ? 5000 : 2400);
 }
 
 function setTab(tab) {
@@ -75,8 +77,9 @@ function viewHome() {
   const lastWeight = bodySorted.find((b) => b.weight);
   const t = foodTotals(today());
 
-  const next = nextPlanDay();
   const tips = generateTips();
+  const pushToday = (s.habits?.pushups || []).includes(today());
+  const streak = pushupStreak();
 
   const recent = [
     ...s.workouts.map((w) => ({ date: w.date, icon: '🏋️', text: `${w.dayName || 'Styrkeøkt'} – ${w.exercises.filter((e) => e.sets.some((x) => x.r > 0)).length} øvelser` })),
@@ -89,17 +92,21 @@ function viewHome() {
       <div class="grid2">
         <div class="stat"><div class="v">${last7W}</div><div class="l">Styrkeøkter siste 7 d</div></div>
         <div class="stat"><div class="v">${fmtNum(meters7 / 1000, 1)} km</div><div class="l">Roing siste 7 d (${last7R.length} økter)</div></div>
-        <div class="stat"><div class="v">${lastWaist ? fmtNum(lastWaist.waist) + ' cm' : '–'}</div><div class="l">Midje ${lastWaist ? '(' + fmtDate(lastWaist.date) + ')' : ''}</div></div>
+        ${lastWaist ? `<div class="stat"><div class="v">${fmtNum(lastWaist.waist)} cm</div><div class="l">Midje (${fmtDate(lastWaist.date)})</div></div>`
+          : `<div class="stat"><div class="v">${lastWeight && s.goals?.weight ? fmtNum(Math.max(0, lastWeight.weight - s.goals.weight)) + ' kg' : '–'}</div><div class="l">Igjen til ${fmtNum(s.goals?.weight)} kg</div></div>`}
         <div class="stat"><div class="v">${lastWeight ? fmtNum(lastWeight.weight) + ' kg' : '–'}</div><div class="l">Vekt ${lastWeight ? '(' + fmtDate(lastWeight.date) + ')' : ''}</div></div>
       </div>
     </div>
 
+    ${todayCard()}
+
     <div class="card">
-      <h2>Neste økt</h2>
-      ${next ? `<p style="margin:0 0 10px"><b>${esc(next.name)}</b><br><span class="muted">${next.exercises.map((e) => esc(e.name)).join(' · ')}</span></p>
-        <div class="row"><button class="btn" data-action="start-workout" data-day="${esc(next.id)}">Start økt</button>
-        <button class="btn secondary" data-action="goto" data-tab="row">Logg roøkt</button></div>` : '<p class="muted">Legg inn en treningsplan under ⚙︎.</p>'}
+      <div class="row"><span>💪 <b>10 armhevinger</b> i morges</span><span class="spacer"></span>
+        <button class="btn small ${pushToday ? '' : 'secondary'}" data-action="toggle-pushups">${pushToday ? '✔ Tatt' : 'Huk av'}</button></div>
+      ${streak > 1 ? `<div class="muted small" style="margin-top:4px">${streak} dager på rad 🔥</div>` : ''}
     </div>
+
+    ${weekCard()}
 
     <div class="card">
       <h2>Mat i dag</h2>
@@ -114,6 +121,8 @@ function viewHome() {
       <button class="btn secondary small" data-action="goto" data-tab="coach">Spør Claude om en full analyse →</button>
     </div>
 
+    ${rulesCard()}
+
     <div class="card">
       <h2>Siste aktivitet</h2>
       ${recent.length ? `<ul class="list">${recent.map((r) => `<li><div class="top"><span>${r.icon} ${esc(r.text)}</span><span class="muted small">${fmtDate(r.date)}</span></div></li>`).join('')}</ul>` : '<div class="empty">Ingenting logget ennå.</div>'}
@@ -127,13 +136,86 @@ function macroBar(label, val, target, unit) {
     <div class="progress ${over ? 'over' : ''}"><div style="width:${pct}%"></div></div></div>`;
 }
 
+const addDays = (iso, n) => { const d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() + n); return toISODate(d); };
+
+// Neste styrkeøkt etter ukeplanen (i dag eller første kommende senterdag)
 function nextPlanDay() {
   const s = S();
   if (!s.plan.days.length) return null;
-  const last = [...s.workouts].sort((a, b) => b.date.localeCompare(a.date) || (b.createdAt || 0) - (a.createdAt || 0))[0];
-  if (!last) return s.plan.days[0];
-  const idx = s.plan.days.findIndex((d) => d.id === last.dayId);
-  return s.plan.days[(idx + 1) % s.plan.days.length] || s.plan.days[0];
+  for (let i = 0; i < 7; i++) {
+    const v = scheduleFor(addDays(today(), i));
+    const day = s.plan.days.find((d) => d.id === v);
+    if (day) return day;
+  }
+  return s.plan.days[0];
+}
+
+function pushupStreak() {
+  const set = new Set(S().habits?.pushups || []);
+  let n = 0, d = today();
+  if (!set.has(d)) d = addDays(d, -1);
+  while (set.has(d)) { n++; d = addDays(d, -1); }
+  return n;
+}
+
+function todayCard() {
+  const s = S();
+  const t = today();
+  const plan = scheduleFor(t);
+  const day = s.plan.days.find((d) => d.id === plan);
+  const rowedToday = s.rows.filter((r) => r.date === t);
+  const liftedToday = s.workouts.filter((w) => w.date === t);
+  const week = rowWeek(t);
+  const start = s.settings.rowStartDate;
+  const header = `<h2>I dag – ${weekdayName(t).toLowerCase()}${week ? ` · uke ${week} av ${s.plan.rowProgram.length} (${esc(s.plan.rowProgram[week - 1].phase)})` : ''}</h2>`;
+
+  if (plan === 'row') {
+    const sess = rowSessionFor(t);
+    const before = start && t < start;
+    return `<div class="card">${header}
+      ${sess ? `<p style="margin:0 0 6px">🚣 <b>${esc(sess.desc)}</b></p><p class="muted small" style="margin:0 0 10px">${esc(sess.target)}</p>`
+        : `<p style="margin:0 0 10px">🚣 <b>Roing hjemme</b>${before ? `<br><span class="muted small">Roprogrammet starter ${fmtDate(start)}. Frem til da: rolig, 2:30–2:40/500.</span>` : ''}</p>`}
+      ${rowedToday.length ? `<div class="tip good">✔ Logget: ${rowedToday.map((r) => `${fmtNum(r.distance)} m på ${fmtTime(r.timeSec)}`).join(', ')}</div>` : ''}
+      <button class="btn" data-action="goto" data-tab="row">${rowedToday.length ? 'Se roing' : 'Logg roøkta'}</button></div>`;
+  }
+  if (day) {
+    return `<div class="card">${header}
+      <p style="margin:0 0 10px">🏋️ <b>Senter: ${esc(day.name)}</b><br><span class="muted small">${day.exercises.map((e) => esc(e.name)).join(' · ')}</span></p>
+      ${liftedToday.length ? '<div class="tip good">✔ Styrkeøkt logget i dag</div>' : ''}
+      <button class="btn" data-action="start-workout" data-day="${esc(day.id)}">${liftedToday.length ? 'Ny økt' : 'Start økt'}</button></div>`;
+  }
+  const next = nextPlanDay();
+  return `<div class="card">${header}
+    <p style="margin:0 0 10px">😴 <b>Hviledag</b>${weekdayName(t) === 'Torsdag' ? ' – eventuelt en rolig gåtur' : ''}.</p>
+    <p class="muted small" style="margin:0 0 10px">Hvile er en del av planen. Rygg, fingre og ankler trenger den.</p>
+    ${next ? `<button class="btn ghost small" data-action="start-workout" data-day="${esc(next.id)}">Senteret i dag likevel? Start ${esc(next.name.split(' – ')[0])}</button>` : ''}</div>`;
+}
+
+function weekCard() {
+  const s = S();
+  const t = today();
+  const wdIdx = WEEKDAYS.indexOf(weekdayName(t));
+  const monday = addDays(t, -wdIdx);
+  const cells = WEEKDAYS.map((wd, i) => {
+    const d = addDays(monday, i);
+    const p = scheduleFor(d);
+    const day = s.plan.days.find((x) => x.id === p);
+    const done = p === 'row' ? s.rows.some((r) => r.date === d) : day ? s.workouts.some((w) => w.date === d) : null;
+    const sess = p === 'row' ? rowSessionFor(d) : null;
+    const label = p === 'row' ? (sess ? sess.desc : 'Roing') : day ? day.name.split(' – ')[0] : 'Hvile';
+    const icon = p === 'row' ? '🚣' : day ? '🏋️' : '·';
+    const status = done === null ? '' : done ? '✔' : d < t ? '–' : '';
+    return `<tr${d === t ? ' style="font-weight:600"' : ''}><td>${wd.slice(0, 3)}</td><td>${icon} ${esc(label)}</td><td style="text-align:right">${status}</td></tr>`;
+  }).join('');
+  return `<div class="card"><h2>Denne uka</h2><table class="tbl">${cells}</table>
+    <p class="muted small" style="margin:8px 0 0">Bommer du på en økt, hopper du over den.</p></div>`;
+}
+
+function rulesCard() {
+  const rules = S().plan.rules || [];
+  if (!rules.length) return '';
+  return `<div class="card"><h2>📖 Planen min</h2>${rules.map((r) => `<details><summary>${esc(r.title)}</summary>
+    ${r.intro ? `<p class="small">${esc(r.intro)}</p>` : ''}<ul class="small">${r.items.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></details>`).join('')}</div>`;
 }
 
 // ============================================================ STYRKE
@@ -301,26 +383,32 @@ function viewRow() {
   s.rows.forEach((r) => { const k = isoWeek(r.date); weeks[k] = (weeks[k] || 0) + (Number(r.distance) || 0); });
   const wk = Object.keys(weeks).sort().slice(-10).map((k) => ({ label: k.split('-U')[1], value: weeks[k] / 1000 }));
 
+  const sess = rowSessionFor(today());
+  const defType = sess?.kind || 'Rolig';
   return `
     <div class="card">
       <h2>Ny roøkt</h2>
+      ${sess ? `<div class="tip"><b>Uke ${sess.week} – ${esc(sess.phase)}:</b> ${esc(sess.desc)}<br><span class="small">${esc(sess.target)}</span></div>` : ''}
       <form id="rowForm">
         <div class="grid2">
           <div class="field"><label>Dato</label><input type="date" name="date" value="${today()}"></div>
-          <div class="field"><label>Type</label><select name="type">${ROW_TYPES.map((t) => `<option>${t}</option>`).join('')}</select></div>
-          <div class="field"><label>Distanse (m)</label><input name="distance" inputmode="numeric" placeholder="5000" required></div>
-          <div class="field"><label>Tid (mm:ss eller t:mm:ss)</label><input name="time" placeholder="21:30.5" required></div>
-          <div class="field"><label>Tak/min (snitt)</label><input name="spm" inputmode="numeric" placeholder="22"></div>
+          <div class="field"><label>Type</label><select name="type">${ROW_TYPES.map((t) => `<option ${t === defType ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
+          <div class="field"><label>Distanse (m)</label><input name="distance" inputmode="numeric" placeholder="${defType.startsWith('Test') ? '2000' : '4000'}" ${defType === 'Test 2000 m' ? 'value="2000"' : ''} required></div>
+          <div class="field"><label>Tid (mm:ss eller t:mm:ss)</label><input name="time" placeholder="${sess && /(\d+) min rolig/.test(sess.desc) ? sess.desc.match(/(\d+) min/)[1] + ':00' : '20:00'}" required></div>
+          <div class="field"><label>Tak/min (snitt)</label><input name="spm" inputmode="numeric" placeholder="18–22"></div>
+          <div class="field"><label>Damper (1–10)</label><input name="damper" inputmode="decimal" placeholder="3–5"></div>
           <div class="field"><label>Snittwatt (tom = beregnes)</label><input name="watt" inputmode="numeric"></div>
           <div class="field"><label>Snittpuls</label><input name="hr" inputmode="numeric"></div>
           <div class="field"><label>Kcal</label><input name="kcal" inputmode="numeric"></div>
-          <div class="field"><label>Dragfaktor</label><input name="drag" inputmode="numeric" placeholder="110–130"></div>
+          <div class="field"><label>Dragfaktor (valgfritt)</label><input name="drag" inputmode="numeric"></div>
         </div>
-        <div class="field"><label>Notat / intervaller (f.eks. 8×500 m / 1 min pause)</label><textarea name="note"></textarea></div>
+        <div class="field"><label>Notat / intervaller / hvordan kjentes rygg, fingre, ankler?</label><textarea name="note">${sess && sess.kind !== 'Rolig' ? esc(sess.desc) : ''}</textarea></div>
         <div id="rowPreview" class="muted small" style="margin-bottom:8px"></div>
         <button class="btn" type="submit">Lagre roøkt</button>
       </form>
     </div>
+
+    ${rowProgramCard()}
 
     <div class="card">
       <h2>Rekorder</h2>
@@ -343,30 +431,88 @@ function viewRow() {
 
     <div class="card">
       <h2>Historikk</h2>
-      ${R.length ? `<ul class="list">${R.map((r) => `<li><div class="top"><span><b>${esc(r.type)}</b> · ${fmtNum(r.distance)} m · ${fmtTime(r.timeSec, 1)}</span><span class="muted small">${fmtDate(r.date)}</span></div>
-        <div class="small muted">${fmtTime(splitPer500(r), 1)}/500 m · ${Math.round(rowWatt(r)) || '–'} W${r.spm ? ' · ' + r.spm + ' t/min' : ''}${r.hr ? ' · ♥ ' + r.hr : ''}${r.kcal ? ' · ' + r.kcal + ' kcal' : ''}${r.drag ? ' · DF ' + r.drag : ''}</div>
+      ${R.length ? `<ul class="list">${R.map((r) => `<li><div class="top"><span><b>${esc(r.type)}</b>${r.week ? ` <span class="muted small">uke ${r.week}</span>` : ''} · ${fmtNum(r.distance)} m · ${fmtTime(r.timeSec, 1)}</span><span class="muted small">${fmtDate(r.date)}</span></div>
+        <div class="small muted">${fmtTime(splitPer500(r), 1)}/500 m · ${Math.round(rowWatt(r)) || '–'} W${r.spm ? ' · ' + r.spm + ' t/min' : ''}${r.damper ? ' · damper ' + fmtNum(r.damper) : ''}${r.hr ? ' · ♥ ' + r.hr : ''}${r.kcal ? ' · ' + r.kcal + ' kcal' : ''}${r.drag ? ' · DF ' + r.drag : ''}</div>
+        ${isEasy(r) && splitPer500(r) < EASY_SPLIT[0] - 0.5 ? '<div class="small" style="color:var(--warn)">⚠️ For raskt til rolig økt (mål 2:30–2:40)</div>' : ''}
+        ${isEasy(r) && r.spm > 22 ? '<div class="small" style="color:var(--warn)">⚠️ Tak/min over 22</div>' : ''}
         ${r.note ? `<div class="small">“${esc(r.note)}”</div>` : ''}
         <button class="btn danger small" style="margin-top:6px" data-action="delete-row" data-id="${r.id}">Slett</button></li>`).join('')}</ul>` : '<div class="empty">Ingen roøkter ennå.</div>'}
     </div>`;
 }
 
+function rowProgramCard() {
+  const s = S();
+  const prog = s.plan.rowProgram || [];
+  if (!prog.length) return '';
+  const cur = rowWeek(today());
+  const start = s.settings.rowStartDate;
+  const days = [...new Set(prog.flatMap((w) => Object.keys(w.sessions)))].sort((a, b) => WEEKDAYS.indexOf(a) - WEEKDAYS.indexOf(b));
+  const rowsHtml = prog.map((w, i) => {
+    const wkStart = start ? addDays(start, i * 7) : null;
+    const cells = days.map((d) => {
+      const date = wkStart ? addDays(wkStart, WEEKDAYS.indexOf(d)) : null;
+      const done = date && s.rows.some((r) => r.date === date);
+      return `<td>${esc(w.sessions[d] || '')}${done ? ' ✔' : ''}</td>`;
+    }).join('');
+    return `<tr${i + 1 === cur ? ' style="background:var(--accent-soft);font-weight:600"' : ''}><td>${i + 1}</td><td>${esc(w.phase)}</td>${cells}</tr>`;
+  }).join('');
+  return `<div class="card"><details ${cur ? '' : 'open'}><summary>🗓️ Roprogrammet (${prog.length} uker)${cur ? ` – nå uke ${cur}` : start && today() < start ? ` – starter ${fmtDate(start)}` : ''}</summary>
+    <div style="overflow-x:auto;margin-top:8px"><table class="tbl small"><tr><th>Uke</th><th>Fase</th>${days.map((d) => `<th>${d.slice(0, 3)}</th>`).join('')}</tr>${rowsHtml}</table></div>
+    <p class="muted small">500 m-intervallene ros i 2000 m-testens tempo + 3 sek. Startdato endres under ⚙︎.</p></details></div>`;
+}
+
 // ============================================================ KROPP
-const BODY_FIELDS = [['weight', 'Vekt', 'kg'], ['waist', 'Midje', 'cm'], ['hip', 'Hofte', 'cm'], ['chest', 'Bryst', 'cm'], ['arm', 'Overarm', 'cm'], ['thigh', 'Lår', 'cm'], ['fat', 'Fettprosent', '%']];
+const BODY_FIELDS = [['weight', 'Vekt', 'kg'], ['waist', 'Midje', 'cm'], ['fat', 'Fettprosent', '%'], ['fatMass', 'Fettmasse', 'kg'], ['muscle', 'Muskelmasse', 'kg'], ['visceral', 'Visceralt fett', ''], ['bmr', 'BMR', 'kcal'], ['hip', 'Hofte', 'cm'], ['chest', 'Bryst', 'cm'], ['arm', 'Overarm', 'cm']];
+
+function goalCard(B) {
+  const g = S().goals;
+  if (!g) return '';
+  const first = (k) => B.find((b) => b[k]);
+  const last = (k) => [...B].reverse().find((b) => b[k]);
+  const row = (k, label, unit, target, lowerIsBetter = true, keep = false) => {
+    const f = first(k), l = last(k);
+    if (!l) return `<tr><td>${label}</td><td>–</td><td>${keep ? '≥ ' : lowerIsBetter ? '' : ''}${fmtNum(target)} ${unit}</td><td></td></tr>`;
+    let pct = 0, status = '';
+    if (keep) { status = l[k] >= target - 0.3 ? '✔ holdes' : '⚠️ faller'; }
+    else if (f && f[k] !== target) { pct = Math.max(0, Math.min(100, ((f[k] - l[k]) / (f[k] - target)) * 100)); status = `${Math.round(pct)} %`; }
+    return `<tr><td>${label}</td><td><b>${fmtNum(l[k])}</b> ${unit}</td><td>${keep ? '≥ ' : ''}${fmtNum(target)} ${unit}</td><td style="text-align:right">${status}</td></tr>`;
+  };
+  const rate = weightRate();
+  const lw = last('weight');
+  let eta = '';
+  if (rate && rate.perWeek < -0.05 && lw) {
+    const weeksLeft = (lw.weight - g.weight) / -rate.perWeek;
+    const d = new Date(); d.setDate(d.getDate() + weeksLeft * 7);
+    eta = `I dette tempoet når du ${g.weight} kg ca. ${d.toLocaleDateString('no-NO', { month: 'long', year: 'numeric' })}.`;
+  }
+  return `<div class="card"><h2>Mål: ${fmtNum(g.weight)} kg innen ${new Date(g.targetDate + 'T12:00').toLocaleDateString('no-NO', { month: 'long', year: 'numeric' })}</h2>
+    <table class="tbl"><tr><th></th><th>Nå</th><th>Mål</th><th></th></tr>
+      ${row('weight', 'Vekt', 'kg', g.weight)}
+      ${row('fat', 'Fettprosent', '%', g.fat)}
+      ${row('fatMass', 'Fettmasse', 'kg', g.fatMass)}
+      ${row('muscle', 'Muskelmasse', 'kg', g.muscle, false, true)}
+      ${row('visceral', 'Visceralt fett (under)', '', g.visceral)}
+    </table>
+    ${rate ? `<p class="small" style="margin:8px 0 0">Tempo: <b>${rate.perWeek < 0 ? 'ned' : 'opp'} ${fmtNum(Math.abs(rate.perWeek))} kg/uke</b> (mål 0,4–0,6). ${eta}</p>` : ''}
+    <p class="muted small" style="margin:6px 0 0">De 10 kiloene skal være fett, ikke muskler. Vei deg mandag morgen, før frokost.</p></div>`;
+}
 
 function viewBody() {
   const B = [...S().body].sort((a, b) => a.date.localeCompare(b.date));
+  if (!BODY_FIELDS.some((f) => f[0] === ui.bodyMetric) || !B.some((b) => b[ui.bodyMetric])) ui.bodyMetric = (BODY_FIELDS.find((f) => B.some((b) => b[f[0]])) || BODY_FIELDS[0])[0];
   const metric = BODY_FIELDS.find((f) => f[0] === ui.bodyMetric) || BODY_FIELDS[1];
   const pts = B.filter((b) => b[metric[0]]).map((b) => ({ x: b.date, y: Number(b[metric[0]]) }));
   const first = pts[0], last = pts[pts.length - 1];
   const diff = first && last && pts.length > 1 ? last.y - first.y : null;
   return `
+    ${goalCard(B)}
     <div class="card">
-      <h2>Ny måling</h2>
+      <h2>Ny måling (Tanita)</h2>
       <form id="bodyForm">
         <div class="field"><label>Dato</label><input type="date" name="date" value="${today()}"></div>
-        <div class="grid2">${BODY_FIELDS.map(([k, l, u]) => `<div class="field"><label>${l} (${u})</label><input name="${k}" inputmode="decimal"></div>`).join('')}</div>
+        <div class="grid2">${BODY_FIELDS.map(([k, l, u]) => `<div class="field"><label>${l}${u ? ` (${u})` : ''}</label><input name="${k}" inputmode="decimal"></div>`).join('')}</div>
         <div class="field"><label>Notat</label><input name="note"></div>
-        <p class="muted small">Tips: Mål midjen i navlehøyde, etter en rolig utpust, samme ukedag om morgenen.</p>
+        <p class="muted small">Mandag morgen etter toalettet, før frokost. Midjen måles i navlehøyde etter en rolig utpust. Fyll inn det du har – alle felt er valgfrie.</p>
         <button class="btn" type="submit">Lagre måling</button>
       </form>
     </div>
@@ -378,17 +524,18 @@ function viewBody() {
     </div>
     <div class="card">
       <h2>Alle målinger</h2>
-      ${B.length ? `<div style="overflow-x:auto"><table class="tbl"><tr><th>Dato</th>${BODY_FIELDS.map((f) => `<th>${f[1]}</th>`).join('')}<th></th></tr>
-        ${[...B].reverse().map((b) => `<tr><td>${fmtDate(b.date)}</td>${BODY_FIELDS.map((f) => `<td>${b[f[0]] ? fmtNum(b[f[0]]) : ''}</td>`).join('')}
+      ${B.length ? `<div style="overflow-x:auto"><table class="tbl"><tr><th>Dato</th>${BODY_FIELDS.filter((f) => B.some((b) => b[f[0]])).map((f) => `<th>${f[1]}</th>`).join('')}<th></th></tr>
+        ${[...B].reverse().map((b) => `<tr><td style="white-space:nowrap">${fmtDate(b.date)}</td>${BODY_FIELDS.filter((f) => B.some((x) => x[f[0]])).map((f) => `<td>${b[f[0]] ? fmtNum(b[f[0]]) : ''}</td>`).join('')}
         <td><button class="x" data-action="delete-body" data-id="${b.id}" aria-label="Slett">✕</button></td></tr>`).join('')}</table></div>` : '<div class="empty">Ingen målinger ennå.</div>'}
     </div>`;
 }
 
 // ============================================================ MAT
 function viewFood() {
-  const head = subTabs(ui.foodSub, [['today', 'Matlogg'], ['plan', 'Matplan'], ['stats', 'Oversikt']], 'food-sub');
+  const head = subTabs(ui.foodSub, [['today', 'Matlogg'], ['plan', 'Matplan'], ['shop', 'Handleliste'], ['stats', 'Oversikt']], 'food-sub');
   if (ui.foodSub === 'plan') return head + foodPlan();
   if (ui.foodSub === 'stats') return head + foodStats();
+  if (ui.foodSub === 'shop') return head + foodShopping();
   return head + foodLog();
 }
 
@@ -449,8 +596,21 @@ function foodPlan() {
         <p class="small">Sum: <b>${sum.kcal} kcal</b>, <b>${sum.protein} g protein</b></p>` : '<div class="empty">Ingen måltider planlagt.</div>'}
       <div class="row"><button class="btn ghost small" data-action="copy-mealplan">Kopier ${day.toLowerCase()} til alle dager</button></div>
     </div>
+    <div class="card"><details><summary>🥯 Oppskrift: proteinrundstykker</summary><p class="small">${esc(PROTEIN_ROLLS)}</p></details></div>
     <div class="card"><h2>Legg til i matplan</h2>${foodForm('mealPlanForm')}
       <p class="muted small">Du kan også be Claude-coachen lage en matplan – den kan importeres med ett trykk.</p></div>`;
+}
+
+function foodShopping() {
+  const s = S();
+  const checked = new Set(s.shoppingChecked || []);
+  return (s.shopping || []).map((g, gi) => `<div class="card"><h2>${esc(g.title)}</h2>
+    <ul class="list">${g.items.map((it, ii) => {
+      const k = `${gi}:${ii}`;
+      return `<li><label class="row" style="color:var(--text);font-size:.95rem;margin:0;cursor:pointer">
+        <input type="checkbox" data-shop="${k}" ${checked.has(k) ? 'checked' : ''} style="width:auto">
+        <span style="${checked.has(k) ? 'text-decoration:line-through;opacity:.55' : ''}">${esc(it)}</span></label></li>`;
+    }).join('')}</ul></div>`).join('') + `<div class="row"><button class="btn ghost" data-action="shop-reset">Nullstill avkrysninger</button></div>`;
 }
 
 function foodStats() {
@@ -488,11 +648,11 @@ function viewCoach() {
   const hasKey = !!s.settings.apiKey;
   const msgs = s.coach.messages;
   const quick = [
-    ['Gi meg en analyse av den siste måneden: fremgang, hva som går bra, hva jeg bør justere.', '📊 Månedsanalyse'],
-    ['Basert på dataene mine: foreslå justert treningsprogram for de neste 4–6 ukene, inkludert roøkter.', '🗓️ Nytt program'],
-    ['Lag en ukentlig matplan som passer målet mitt og treningsmengden min.', '🥗 Matplan'],
-    ['Hvordan bør jeg legge opp roingen for å bli bedre på 2000 m og samtidig støtte fettforbrenning?', '🚣 Rotips'],
-    ['Hvilke vekter og reps bør jeg sikte på i neste økt?', '🎯 Neste økt'],
+    ['Ukesrapport: se på uka som gikk (Tanita, roing, styrke, mat). Holder jeg spillereglene? Hva skal jeg justere neste uke?', '📊 Ukesrapport'],
+    ['Hvilke vekter og reps bør jeg sikte på i neste senterøkt?', '🎯 Neste økt'],
+    ['Går de rolige roøktene mine i riktig tempo, og hvordan ser fremgangen ut?', '🚣 Roing'],
+    ['Går vekttapet i riktig tempo uten at jeg mister muskler? Bør kostholdet justeres?', '⚖️ Vekt og mat'],
+    ['Jeg er ferdig med 12-ukersblokken. Se på resultatene (2000 m-test og Tanita) og lag neste blokk, både styrke og roprogram.', '🗓️ Neste blokk'],
   ];
 
   const chat = msgs.map((m, idx) => {
@@ -613,7 +773,15 @@ function viewSettings() {
           <div class="field"><label>Kalorimål / dag</label><input name="kcalTarget" inputmode="numeric" value="${esc(st.kcalTarget)}"></div>
           <div class="field"><label>Proteinmål (g/dag)</label><input name="proteinTarget" inputmode="numeric" value="${esc(st.proteinTarget)}"></div>
         </div>
-        <div class="field"><label>Mål med treningen</label><textarea name="goal" placeholder="F.eks. redusere midjemål til 90 cm, bli sterkere, 2000 m under 7:30">${esc(st.goal)}</textarea></div>
+        <div class="field"><label>Mål med treningen</label><textarea name="goal">${esc(st.goal)}</textarea></div>
+        <div class="grid3">
+          <div class="field"><label>Målvekt (kg)</label><input name="gWeight" inputmode="decimal" value="${esc(s.goals?.weight ?? '')}"></div>
+          <div class="field"><label>Mål fett (%)</label><input name="gFat" inputmode="decimal" value="${esc(s.goals?.fat ?? '')}"></div>
+          <div class="field"><label>Mål fettmasse (kg)</label><input name="gFatMass" inputmode="decimal" value="${esc(s.goals?.fatMass ?? '')}"></div>
+          <div class="field"><label>Behold muskler (kg)</label><input name="gMuscle" inputmode="decimal" value="${esc(s.goals?.muscle ?? '')}"></div>
+          <div class="field"><label>Visceralt fett under</label><input name="gVisceral" inputmode="decimal" value="${esc(s.goals?.visceral ?? '')}"></div>
+          <div class="field"><label>Innen dato</label><input type="date" name="gDate" value="${esc(s.goals?.targetDate ?? '')}"></div>
+        </div>
         <button class="btn" type="submit">Lagre</button>
       </form></div>
 
@@ -637,9 +805,17 @@ function viewSettings() {
         ${s.plan.days.map((d, i) => `<div class="exercise">
           <div class="row"><input name="dayName${i}" value="${esc(d.name)}" style="flex:1"><button type="button" class="x" data-action="remove-day" data-i="${i}" aria-label="Fjern dag">✕</button></div>
           <textarea name="dayEx${i}" rows="5" style="margin-top:6px">${esc(planToText(d))}</textarea></div>`).join('')}
-        <div class="field"><label>Roopplegg</label><textarea name="rowing">${esc(s.plan.rowing || '')}</textarea></div>
+        <h3>Ukeplan</h3>
+        <div class="grid2">${WEEKDAYS.map((wd) => `<div class="field"><label>${wd}</label><select name="sch_${wd}">
+          ${[['row', '🚣 Roing hjemme'], ['rest', '😴 Hvile'], ...s.plan.days.map((d) => [d.id, '🏋️ ' + d.name.split(' – ')[0]])].map(([v, l]) => `<option value="${esc(v)}" ${(s.plan.schedule?.[wd] || 'rest') === v ? 'selected' : ''}>${esc(l)}</option>`).join('')}
+        </select></div>`).join('')}</div>
+        <div class="field"><label>Roopplegg (kort)</label><textarea name="rowing">${esc(s.plan.rowing || '')}</textarea></div>
+        <h3>Roprogram</h3>
+        <div class="field"><label>Startdato (mandag i uke 1)</label><input type="date" name="rowStartDate" value="${esc(s.settings.rowStartDate || '')}"></div>
+        <p class="muted small">Én linje per uke: <code>Fase | Mandag: økt; Onsdag: økt; Lørdag: økt</code></p>
+        <textarea name="rowProgram" rows="8">${esc((s.plan.rowProgram || []).map((w) => `${w.phase} | ${Object.entries(w.sessions).map(([d, x]) => `${d}: ${x}`).join('; ')}`).join('\n'))}</textarea>
         <div class="row"><button class="btn" type="submit">Lagre plan</button><button type="button" class="btn secondary" data-action="add-day">+ Ny øktdag</button>
-          <span class="spacer"></span><button type="button" class="btn ghost small" data-action="reset-plan">Tilbakestill eksempel</button></div>
+          <span class="spacer"></span><button type="button" class="btn ghost small" data-action="reset-plan">Tilbakestill til original plan</button></div>
       </form></div>
 
     <div class="card"><h2>Sikkerhetskopi</h2>
@@ -745,6 +921,14 @@ document.addEventListener('click', async (e) => {
       save(); toast('Kopiert'); return render();
     }
 
+    case 'toggle-pushups': {
+      s.habits ||= { pushups: [] };
+      const list = s.habits.pushups;
+      const k = list.indexOf(today());
+      if (k >= 0) list.splice(k, 1); else { list.push(today()); toast('Bra! 💪'); }
+      save(); return render();
+    }
+    case 'shop-reset': s.shoppingChecked = []; save(); return render();
     case 'quick-ask': return sendToCoach(el.dataset.q);
     case 'new-chat':
       if (!confirm('Starte ny samtale? Den gamle slettes.')) return;
@@ -758,7 +942,24 @@ document.addEventListener('click', async (e) => {
       const obj = extractJsonBlocks(txt)[Number(el.dataset.b)];
       if (a === 'apply-plan') {
         if (!confirm(`Erstatte nåværende plan «${s.plan.name}» med «${obj.name}»? Historikken din beholdes.`)) return;
-        s.plan = { name: obj.name || 'Ny plan', rowing: obj.rowing || '', days: obj.days.map((d) => ({ id: uid(), name: d.name, exercises: d.exercises.map((x) => ({ name: x.name, sets: Number(x.sets) || 3, reps: String(x.reps ?? '8-12'), ...(x.note ? { note: x.note } : {}) })) })) };
+        const ids = 'abcdefgh';
+        const oldIds = s.plan.days.map((d) => d.id);
+        s.plan = {
+          ...s.plan,
+          name: obj.name || 'Ny plan',
+          rowing: obj.rowing || s.plan.rowing || '',
+          days: obj.days.map((d, k) => ({ id: d.id && /^[a-h]$/.test(d.id) ? d.id : ids[k], name: d.name, exercises: d.exercises.map((x) => ({ name: x.name, sets: Number(x.sets) || 3, reps: String(x.reps ?? '8-12'), ...(x.note ? { note: x.note } : {}) })) })),
+        };
+        if (obj.schedule && typeof obj.schedule === 'object') s.plan.schedule = { ...s.plan.schedule, ...obj.schedule };
+        else WEEKDAYS.forEach((wd) => { const v = s.plan.schedule?.[wd]; if (v && v !== 'row' && v !== 'rest' && !s.plan.days.some((d) => d.id === v)) s.plan.schedule[wd] = oldIds.includes(v) ? 'rest' : v; });
+        if (Array.isArray(obj.rowProgram) && obj.rowProgram.length) {
+          s.plan.rowProgram = obj.rowProgram.filter((w) => w && w.sessions);
+          if (obj.rowStartDate) s.settings.rowStartDate = obj.rowStartDate;
+          else if (confirm('Planen har et nytt roprogram. Starte det på mandag?')) {
+            const wd = WEEKDAYS.indexOf(weekdayName(today()));
+            s.settings.rowStartDate = addDays(today(), wd === 0 ? 0 : 7 - wd);
+          }
+        }
         s.draft = null;
         toast('Ny treningsplan tatt i bruk');
       } else {
@@ -770,9 +971,9 @@ document.addEventListener('click', async (e) => {
       save(); return render();
     }
 
-    case 'add-day': collectPlanForm(); s.plan.days.push({ id: uid(), name: `Økt ${String.fromCharCode(65 + s.plan.days.length)}`, exercises: [] }); save(); return render();
+    case 'add-day': collectPlanForm(); { const ids = 'abcdefgh'; const id = [...ids].find((c) => !s.plan.days.some((d) => d.id === c)) || uid(); s.plan.days.push({ id, name: `Økt ${id.toUpperCase()}`, exercises: [] }); } save(); return render();
     case 'remove-day': if (!confirm('Fjerne denne øktdagen?')) return; collectPlanForm(); s.plan.days.splice(i, 1); save(); return render();
-    case 'reset-plan': if (!confirm('Erstatte planen med eksempelplanen?')) return; s.plan = structuredClone(DEFAULT_PLAN); save(); return render();
+    case 'reset-plan': if (!confirm('Tilbakestille til den opprinnelige planen (95 → 85 kg)?')) return; s.plan = structuredClone(DEFAULT_PLAN); save(); return render();
     case 'export': {
       const blob = new Blob([JSON.stringify(s, null, 2)], { type: 'application/json' });
       const link = document.createElement('a');
@@ -799,6 +1000,20 @@ function collectPlanForm() {
     d.name = fd.get(`dayName${i}`) || d.name;
     d.exercises = textToExercises(fd.get(`dayEx${i}`) || '');
   });
+  s.plan.schedule ||= {};
+  WEEKDAYS.forEach((wd) => { const v = fd.get(`sch_${wd}`); if (v) s.plan.schedule[wd] = v; });
+  if (fd.has('rowStartDate')) s.settings.rowStartDate = fd.get('rowStartDate');
+  if (fd.has('rowProgram')) {
+    s.plan.rowProgram = String(fd.get('rowProgram')).split('\n').map((l) => l.trim()).filter(Boolean).map((l) => {
+      const [phase, rest = ''] = l.includes('|') ? l.split('|').map((x) => x.trim()) : ['', l];
+      const sessions = {};
+      rest.split(';').map((x) => x.trim()).filter(Boolean).forEach((x) => {
+        const m = x.match(/^(Mandag|Tirsdag|Onsdag|Torsdag|Fredag|Lørdag|Søndag)\s*:\s*(.+)$/i);
+        if (m) sessions[WEEKDAYS.find((w) => w.toLowerCase() === m[1].toLowerCase())] = m[2];
+      });
+      return { phase, sessions };
+    });
+  }
 }
 
 document.addEventListener('input', (e) => {
@@ -818,7 +1033,11 @@ document.addEventListener('input', (e) => {
 
 document.addEventListener('change', async (e) => {
   const t = e.target;
-  if (t.dataset.ui) {
+  if (t.dataset.shop) {
+    const set = new Set(S().shoppingChecked || []);
+    t.checked ? set.add(t.dataset.shop) : set.delete(t.dataset.shop);
+    S().shoppingChecked = [...set]; save(); render();
+  } else if (t.dataset.ui) {
     ui[t.dataset.ui] = t.value; saveUi(); render();
   } else if (t.id === 'importFile' && t.files[0]) {
     try {
@@ -851,8 +1070,17 @@ document.addEventListener('submit', async (e) => {
       const timeSec = parseTime(fd.time);
       const distance = num(fd.distance);
       if (!distance || !isFinite(timeSec) || timeSec <= 0) return toast('Sjekk distanse og tid (f.eks. 21:30)');
-      s.rows.push({ id: uid(), date: fd.date || today(), type: fd.type, distance, timeSec, spm: num(fd.spm), watt: num(fd.watt), hr: num(fd.hr), kcal: num(fd.kcal), drag: num(fd.drag), note: fd.note.trim() });
-      save(); toast('Roøkt lagret 🚣'); return render();
+      const date = fd.date || today();
+      const planned = rowSessionFor(date);
+      const rec = { id: uid(), date, type: fd.type, distance, timeSec, spm: num(fd.spm), damper: num(fd.damper), watt: num(fd.watt), hr: num(fd.hr), kcal: num(fd.kcal), drag: num(fd.drag), week: planned?.week || rowWeek(date) || '', planned: planned?.desc || '', note: fd.note.trim() };
+      s.rows.push(rec);
+      save();
+      const sp = splitPer500(rec);
+      if (isEasy(rec) && sp < EASY_SPLIT[0] - 0.5) toast(`Lagret – men ${fmtTime(sp, 1)}/500 er for raskt for rolig. Neste gang: 2:30–2:40.`);
+      else if (isEasy(rec) && rec.spm > 22) toast('Lagret – hold tak/min på 18–22 på rolige økter.');
+      else if (rec.damper > 5) toast('Lagret – husk damper 3–5 for korsryggens skyld.');
+      else toast('Roøkt lagret 🚣');
+      return render();
     }
     case 'bodyForm': {
       const rec = { id: uid(), date: fd.date || today(), note: fd.note.trim() };
@@ -879,6 +1107,7 @@ document.addEventListener('submit', async (e) => {
     }
     case 'profileForm':
       Object.assign(s.settings, { name: fd.name.trim(), heightCm: num(fd.heightCm), kcalTarget: num(fd.kcalTarget), proteinTarget: num(fd.proteinTarget), goal: fd.goal.trim() });
+      s.goals = { ...(s.goals || {}), weight: num(fd.gWeight), fat: num(fd.gFat), fatMass: num(fd.gFatMass), muscle: num(fd.gMuscle), visceral: num(fd.gVisceral), targetDate: fd.gDate };
       save(); return toast('Lagret');
     case 'apiForm':
       Object.assign(s.settings, { apiKey: fd.apiKey.trim(), model: fd.model, effort: fd.effort });

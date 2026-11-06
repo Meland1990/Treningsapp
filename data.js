@@ -1,65 +1,39 @@
 // Lagring, standarddata og beregninger. Alt lagres lokalt på enheten (localStorage).
+import { MY_PLAN, MY_GOALS, MY_START_BODY, MY_MEAL_PLAN, MY_SHOPPING } from './myplan.js';
 
 const KEY = 'treningsdagbok_v1';
 
 export const WEEKDAYS = ['Mandag', 'Tirsdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lørdag', 'Søndag'];
 export const MEALS = ['Frokost', 'Lunsj', 'Mellommåltid', 'Middag', 'Kveldsmat'];
-export const ROW_TYPES = ['Rolig (UT2)', 'Moderat (UT1)', 'Terskel (AT)', 'Intervall', 'Test 2000 m', 'Test 5000 m', 'Annet'];
+export const ROW_TYPES = ['Rolig', 'Intervall', 'Test 2000 m', 'Test 5000 m', 'Annet'];
+export const EASY_SPLIT = [150, 160]; // 2:30–2:40 per 500 m
+export const EASY_SPM = [18, 22];
 
-// Eksempelplan. Bytt ut med din egen plan under Innstillinger → Treningsplan,
-// eller lim inn planen som tekst og la Claude gjøre den om (Coach-fanen).
-export const DEFAULT_PLAN = {
-  name: 'Eksempelplan – bytt ut med din egen',
-  days: [
-    {
-      id: 'a', name: 'Økt A – Underkropp + kjerne',
-      exercises: [
-        { name: 'Knebøy', sets: 4, reps: '6-8' },
-        { name: 'Rumensk markløft', sets: 3, reps: '8-10' },
-        { name: 'Utfall', sets: 3, reps: '10-12' },
-        { name: 'Planke (sek)', sets: 3, reps: '30-60' },
-      ],
-    },
-    {
-      id: 'b', name: 'Økt B – Overkropp',
-      exercises: [
-        { name: 'Benkpress', sets: 4, reps: '6-8' },
-        { name: 'Sittende roing', sets: 4, reps: '8-10' },
-        { name: 'Skulderpress', sets: 3, reps: '8-10' },
-        { name: 'Nedtrekk', sets: 3, reps: '10-12' },
-      ],
-    },
-    {
-      id: 'c', name: 'Økt C – Helkropp',
-      exercises: [
-        { name: 'Markløft', sets: 3, reps: '5' },
-        { name: 'Skrå hantelpress', sets: 3, reps: '8-12' },
-        { name: 'Pullups', sets: 3, reps: '6-10' },
-        { name: 'Farmer walk (m)', sets: 3, reps: '30' },
-      ],
-    },
-  ],
-  rowing: 'Roing 2–3 ganger i uken: 1 rolig langtur (30–45 min, 18–22 tak/min), 1 intervalløkt, evt. kort rolig økt etter styrke.',
-};
+export const DEFAULT_PLAN = MY_PLAN;
 
 const DEFAULT_STATE = {
-  version: 1,
+  version: 2,
   settings: {
-    name: '',
-    goal: '',
+    name: 'Ståle',
+    goal: MY_GOALS.text,
     heightCm: '',
-    kcalTarget: 2400,
+    kcalTarget: 2100,
     proteinTarget: 160,
+    rowStartDate: '2026-11-09',
     apiKey: '',
     model: 'claude-opus-5-5',
     effort: 'medium',
   },
-  plan: DEFAULT_PLAN,
+  goals: MY_GOALS,
+  plan: MY_PLAN,
   workouts: [],   // { id, date, dayId, dayName, exercises:[{name, target, extra, sets:[{w, r}]}], note, rpe, durationMin }
-  rows: [],       // { id, date, type, distance, timeSec, spm, watt, hr, kcal, drag, note }
-  body: [],       // { id, date, weight, waist, hip, chest, arm, thigh, fat, note }
-  mealPlan: {},   // { Mandag: [{ meal, desc, kcal, protein }] }
+  rows: [],       // { id, date, type, distance, timeSec, spm, watt, hr, kcal, damper, drag, week, planned, note }
+  body: [MY_START_BODY], // { id, date, weight, waist, fat, fatMass, muscle, visceral, bmr, hip, chest, arm, note }
+  mealPlan: MY_MEAL_PLAN, // { Mandag: [{ meal, desc, kcal, protein }] }
   food: [],       // { id, date, meal, desc, kcal, protein, carbs, fat }
+  shopping: MY_SHOPPING,
+  shoppingChecked: [],
+  habits: { pushups: [] }, // datoer med 10 armhevinger
   coach: { messages: [], snapshot: '', startedAt: null },
 };
 
@@ -69,7 +43,7 @@ function load() {
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return structuredClone(DEFAULT_STATE);
-    const parsed = JSON.parse(raw);
+    const parsed = migrate(JSON.parse(raw));
     return {
       ...structuredClone(DEFAULT_STATE),
       ...parsed,
@@ -80,6 +54,21 @@ function load() {
     console.error('Kunne ikke lese lagrede data', e);
     return structuredClone(DEFAULT_STATE);
   }
+}
+
+// Oppgraderer data fra den første versjonen (eksempelplan) til Ståles plan.
+function migrate(d) {
+  if ((d.version || 1) < 2) {
+    if (!d.plan || /^Eksempelplan/.test(d.plan.name || '')) d.plan = structuredClone(MY_PLAN);
+    if (!d.mealPlan || !Object.values(d.mealPlan).some((v) => v.length)) d.mealPlan = structuredClone(MY_MEAL_PLAN);
+    d.body = d.body || [];
+    if (!d.body.some((b) => b.id === MY_START_BODY.id)) d.body.push(structuredClone(MY_START_BODY));
+    d.settings = d.settings || {};
+    if (!d.settings.kcalTarget || d.settings.kcalTarget === 2400) d.settings.kcalTarget = 2100;
+    if (!d.settings.goal) d.settings.goal = MY_GOALS.text;
+    d.version = 2;
+  }
+  return d;
 }
 
 export function getState() { return state; }
@@ -96,6 +85,7 @@ export function save() {
 }
 
 export function replaceState(newState) {
+  newState = migrate(newState);
   state = { ...structuredClone(DEFAULT_STATE), ...newState, settings: { ...DEFAULT_STATE.settings, ...(newState.settings || {}) } };
   save();
 }
@@ -171,6 +161,55 @@ export function rowWatt(row) {
   return row.watt ? Number(row.watt) : wattFromSplit(splitPer500(row));
 }
 
+export const isEasy = (r) => /rolig|UT/i.test(r.type || '');
+export const isHard = (r) => /intervall|test|terskel/i.test(r.type || '');
+
+// Hvilken uke i 12-ukersprogrammet en dato hører til (1–12), eller null.
+export function rowWeek(iso) {
+  const start = state.settings.rowStartDate;
+  if (!start) return null;
+  const d = Math.floor((new Date(iso + 'T12:00:00') - new Date(start + 'T12:00:00')) / 86400000);
+  if (d < 0) return null;
+  const w = Math.floor(d / 7) + 1;
+  return w <= (state.plan.rowProgram?.length || 0) ? w : null;
+}
+
+export function sessionKind(desc) {
+  if (/test/i.test(desc)) return /5000/.test(desc) ? 'Test 5000 m' : 'Test 2000 m';
+  if (/\d\s*[×x]\s*\d/.test(desc)) return 'Intervall';
+  return 'Rolig';
+}
+
+// Siste 2000 m-test (for å regne ut tempoet på 500 m-intervallene)
+export function last2kTest() {
+  return [...state.rows].filter((r) => Number(r.distance) === 2000 && /test/i.test(r.type)).sort((a, b) => b.date.localeCompare(a.date))[0];
+}
+
+// Planlagt roøkt for en dato: { week, phase, desc, kind, target } eller null
+export function rowSessionFor(iso) {
+  const week = rowWeek(iso);
+  if (!week) return null;
+  const wk = state.plan.rowProgram[week - 1];
+  const desc = wk?.sessions?.[weekdayName(iso)];
+  if (!desc) return null;
+  const kind = sessionKind(desc);
+  let target;
+  if (kind === 'Rolig') target = 'Rolig: 2:30–2:40/500, 18–22 tak/min, damper 3–5. Start med 5 min ekstra rolig.';
+  else if (kind === 'Intervall') {
+    target = '10 min rolig oppvarming, 5 min rolig til slutt. Alle drag i samme tempo.';
+    if (/500 m/.test(desc)) {
+      const t = last2kTest();
+      target += t ? ` Tempo: ${fmtTime(splitPer500(t) + 3, 1)}/500 (2000 m-testen + 3 sek).` : ' Tempo: 2000 m-testens snittsplitt + 3 sek.';
+    }
+  } else target = 'Den eneste økta der du skal ta i. Start rolig de første 500 m og øk deretter.';
+  return { week, phase: wk.phase, desc, kind, target };
+}
+
+// Planlagt aktivitet for en dato etter ukeplanen
+export function scheduleFor(iso) {
+  return state.plan.schedule?.[weekdayName(iso)] || 'rest';
+}
+
 // ---------- Styrke ----------
 export function parseRepRange(reps) {
   const m = String(reps || '').match(/(\d+)\s*[-–]\s*(\d+)/);
@@ -203,9 +242,10 @@ export function allExerciseNames() {
   return [...set].sort((a, b) => a.localeCompare(b, 'no'));
 }
 
-const LOWER = /(knebøy|markløft|beinpress|benpress|hip thrust|utfall|squat|deadlift|leg press|bulgarsk)/i;
+const DUMBBELL = /(manual|hantel)/i;
 
-// Dobbel progresjon: når alle sett når toppen av rep-intervallet → øk vekten.
+// Dobbel progresjon (fra planen): klarer du toppen av intervallet i alle settene,
+// øk med 2,5 kg eller neste manual, og start nederst i intervallet igjen.
 export function suggestNext(name, repsTarget) {
   const hist = exerciseHistory(name);
   if (!hist.length) return null;
@@ -214,9 +254,10 @@ export function suggestNext(name, repsTarget) {
   const topW = last.top;
   if (!range || !topW) return { weight: topW || '', text: `Sist: ${describeSets(last.sets)}` };
   const workSets = last.sets.filter((s) => Number(s.w) === topW);
-  const step = LOWER.test(name) ? 5 : 2.5;
+  const step = 2.5;
   if (workSets.every((s) => s.r >= range.hi)) {
-    return { weight: topW + step, text: `Alle sett på ${range.hi}+ reps sist – prøv ${fmtNum(topW + step)} kg (+${step}).` };
+    const how = DUMBBELL.test(name) ? 'neste manual' : `${fmtNum(topW + step)} kg`;
+    return { weight: topW + step, text: `Alle sett på ${range.hi}+ reps sist – gå opp til ${how} og start på ${range.lo} reps igjen.` };
   }
   if (workSets.some((s) => s.r < range.lo)) {
     // Sjekk om det har stått stille i 3 økter
@@ -247,28 +288,74 @@ export function foodTotals(date) {
   return { kcal: sum('kcal'), protein: sum('protein'), carbs: sum('carbs'), fat: sum('fat'), count: items.length };
 }
 
+// ---------- Kropp ----------
+// Ukentlig vektendring basert på målinger de siste ~3 ukene
+export function weightRate() {
+  const W = state.body.filter((b) => b.weight).sort((a, b) => a.date.localeCompare(b.date));
+  if (W.length < 2) return null;
+  const last = W[W.length - 1];
+  const ref = [...W].reverse().find((b) => daysAgo(b.date) - daysAgo(last.date) >= 13) || W[0];
+  const weeks = (daysAgo(ref.date) - daysAgo(last.date)) / 7;
+  if (weeks < 0.9) return null;
+  return { perWeek: (last.weight - ref.weight) / weeks, weeks, from: ref, to: last };
+}
+
 // ---------- Tips (regelbasert, fungerer uten Claude) ----------
 export function generateTips() {
   const tips = [];
   const s = state;
-  const sortedW = [...s.workouts].sort((a, b) => b.date.localeCompare(a.date));
+  const t = today();
+  const week = rowWeek(t);
   const sortedR = [...s.rows].sort((a, b) => b.date.localeCompare(a.date));
-  const lastActivity = [sortedW[0]?.date, sortedR[0]?.date].filter(Boolean).sort().pop();
 
-  if (!s.workouts.length && !s.rows.length) {
-    tips.push({ kind: '', text: 'Velkommen! Start med å legge inn treningsplanen din under ⚙︎ → Treningsplan, eller lim den inn i Coach-fanen så gjør Claude den om for deg.' });
-    return tips;
+  // --- Roing: spillereglene ---
+  const recentEasy = sortedR.filter((r) => isEasy(r) && daysAgo(r.date) < 14);
+  const tooFast = recentEasy.filter((r) => splitPer500(r) < EASY_SPLIT[0] - 0.5);
+  if (tooFast.length) {
+    tips.push({ kind: 'warn', text: `${tooFast.length} av de siste rolige roøktene gikk raskere enn 2:30/500 (sist ${fmtTime(splitPer500(tooFast[0]), 1)}). Rolig betyr rolig – du skal kunne snakke i hele setninger. Det er dette som hindrer at du går tom.` });
+  } else if (recentEasy.length >= 3) {
+    tips.push({ kind: 'good', text: `Rolige økter holdes i riktig tempo (2:30–2:40/500). Det er nettopp dette som bygger grunnformen. 👍` });
   }
-  if (lastActivity && daysAgo(lastActivity) >= 4) {
-    tips.push({ kind: 'warn', text: `Det er ${daysAgo(lastActivity)} dager siden siste økt. En rolig 20-minutters roøkt er en fin måte å komme i gang igjen.` });
+  const highSpm = recentEasy.filter((r) => r.spm && r.spm > EASY_SPM[1]);
+  if (highSpm.length) tips.push({ kind: 'warn', text: `Tak/min over 22 på ${highSpm.length} rolige økt(er). Senk takfrekvensen til 18–22 og ta lengre, rolige tak.` });
+  const highDamper = sortedR.filter((r) => daysAgo(r.date) < 14 && r.damper > 5);
+  if (highDamper.length) tips.push({ kind: 'warn', text: 'Damper over 5 er logget. Hold damper på 3–5 – høyere gir mest belastning på korsryggen, ikke mer trening.' });
+
+  const thisWeekHard = s.rows.filter((r) => isHard(r) && isoWeek(r.date) === isoWeek(t));
+  if (thisWeekHard.length > 1) tips.push({ kind: 'warn', text: `${thisWeekHard.length} harde roøkter denne uka. Regelen er maks én hard økt i uka.` });
+  const hardEarly = s.rows.filter((r) => isHard(r) && rowWeek(r.date) && rowWeek(r.date) < 5);
+  if (hardEarly.length) tips.push({ kind: 'warn', text: 'Hard roøkt logget før uke 5. De fire første ukene skal være bare rolig – grunnformen først.' });
+
+  // To roøkter på rad i de første fire ukene
+  const dates = [...new Set(s.rows.map((r) => r.date))].sort();
+  for (let i = 1; i < dates.length; i++) {
+    const w = rowWeek(dates[i]);
+    if (w && w <= 4 && daysAgo(dates[i - 1]) - daysAgo(dates[i]) === 1 && daysAgo(dates[i]) < 7) {
+      tips.push({ kind: 'warn', text: 'To roøkter på rad denne uka. De første fire ukene skal det være minst én dag mellom, for rygg, fingre og ankler.' });
+      break;
+    }
   }
+  const painNotes = sortedR.concat(s.workouts).filter((x) => daysAgo(x.date) < 10 && /(vondt|smert|stiv|verk|rygg|finger|fingre|ankel|ankl)/i.test(x.note || ''));
+  if (painNotes.length) tips.push({ kind: 'warn', text: `Du har notert plager i ${painNotes.length} økt(er) nylig. Smerte som øker under økta eller er verre dagen etter: kort ned neste økt. Kommer det igjen, spør lege eller fysio.` });
 
-  // Treningsfrekvens siste 7 dager
-  const last7W = s.workouts.filter((w) => daysAgo(w.date) < 7).length;
-  const last7R = s.rows.filter((r) => daysAgo(r.date) < 7).length;
-  if (last7W + last7R >= 5) tips.push({ kind: 'good', text: `Sterk uke: ${last7W} styrkeøkter og ${last7R} roøkter siste 7 dager. Husk søvn og minst én hviledag.` });
+  // Bommet økt: hopp over
+  const yesterday = toISODate(new Date(Date.now() - 86400000));
+  const plannedY = scheduleFor(yesterday);
+  const doneY = plannedY === 'row' ? s.rows.some((r) => r.date === yesterday || r.date === t)
+    : plannedY !== 'rest' ? s.workouts.some((w) => w.date === yesterday || w.date === t) : true;
+  if (!doneY && (s.rows.length || s.workouts.length)) tips.push({ kind: '', text: 'Bommet du på gårsdagens økt? Hopp over den – ikke ta den igjen i dag, og ikke doble neste. Følg bare planen videre.' });
 
-  // Progresjon på hovedløft
+  if (week && week <= 2 && s.workouts.length) tips.push({ kind: '', text: `Uke ${week}: velg vekter på senteret som føles litt for lette. Det er her du pleier å starte for hardt.` });
+  if (week === 8 || week === 12) tips.push({ kind: '', text: `Uke ${week} er lett uke med 2000 m-test på onsdag. Start rolig de første 500 m og øk deretter.` });
+
+  // --- Styrke ---
+  const thisWeekStrength = s.workouts.filter((w) => isoWeek(w.date) === isoWeek(t)).length;
+  const wd = weekdayName(t);
+  if ((wd === 'Lørdag' || wd === 'Søndag') && thisWeekStrength === 0 && (s.workouts.length || s.rows.length)) {
+    tips.push({ kind: '', text: 'Ingen senterøkt denne uka? Ta 4 sett armhevinger hjemme, 2–3 reps før du ikke klarer flere. Det holder brystet i gang.' });
+  } else if (wd === 'Fredag' && thisWeekStrength === 0 && s.workouts.length) {
+    tips.push({ kind: '', text: 'Blir det bare én senterøkt denne uka, ta økt C.' });
+  }
   const names = new Set(s.plan.days.flatMap((d) => d.exercises.map((e) => e.name)));
   for (const n of names) {
     const h = exerciseHistory(n);
@@ -276,45 +363,39 @@ export function generateTips() {
       const first = h[h.length - 4].best, last = h[h.length - 1].best;
       const pct = ((last - first) / first) * 100;
       if (pct >= 5) tips.push({ kind: 'good', text: `${n}: estimert 1RM opp ${fmtNum(pct)} % over de siste 4 øktene. 💪` });
-      else if (Math.abs(pct) < 1.5) tips.push({ kind: 'warn', text: `${n}: lite fremgang siste 4 økter. Vurder å bytte rep-intervall, legge til et sett, eller ta en lettere uke.` });
+      else if (Math.abs(pct) < 1.5) tips.push({ kind: 'warn', text: `${n}: lite fremgang siste 4 økter. Sjekk at settene ender tungt (1–2 reps igjen i tanken), og at du får nok protein og søvn.` });
     }
   }
 
-  // Midjemål-trend
-  const waist = s.body.filter((b) => b.waist).sort((a, b) => a.date.localeCompare(b.date));
-  if (waist.length >= 2) {
-    const a = waist[0], b = waist[waist.length - 1];
-    const diff = b.waist - a.waist;
-    const weeks = Math.max(1, daysAgo(a.date) / 7 - daysAgo(b.date) / 7);
-    if (diff < 0) tips.push({ kind: 'good', text: `Midjen er ned ${fmtNum(-diff)} cm siden ${fmtDate(a.date)} (${fmtNum(-diff / weeks)} cm/uke).` });
-    else if (diff > 1) tips.push({ kind: 'warn', text: `Midjen er opp ${fmtNum(diff)} cm siden ${fmtDate(a.date)}. Se på kaloriinntaket og at proteinmålet nås.` });
+  // --- Kropp: oppfølgingstabellen ---
+  const rate = weightRate();
+  if (rate) {
+    const loss = -rate.perWeek;
+    if (loss > 1) tips.push({ kind: 'warn', text: `Ned ${fmtNum(loss)} kg/uke – det er for raskt og tar muskler. Legg til et mellommåltid.` });
+    else if (loss >= 0.4) tips.push({ kind: 'good', text: `Ned ${fmtNum(loss)} kg/uke – akkurat i målsonen (0,4–0,6). Fortsett som før.` });
+    else if (Math.abs(rate.perWeek) < 0.15 && rate.weeks >= 2) tips.push({ kind: 'warn', text: 'Vekten har stått stille i 2 uker. Kutt ca. 200 kcal, f.eks. havregrynet og skiva til kvelds.' });
+    else if (loss > 0) tips.push({ kind: '', text: `Ned ${fmtNum(loss)} kg/uke – litt under målet (0,4–0,6). Sjekk drikke, helg og porsjonen til middag.` });
   }
-  const lastBody = [...s.body].sort((a, b) => b.date.localeCompare(a.date))[0];
-  if (!lastBody || daysAgo(lastBody.date) >= 7) tips.push({ kind: '', text: 'Tid for å måle midje og vekt – helst samme ukedag, om morgenen før frokost.' });
-
-  // Roing
-  if (sortedR.length >= 3) {
-    const steady = sortedR.filter((r) => /UT2|UT1|Rolig|Moderat/.test(r.type) && r.distance >= 3000);
-    if (steady.length >= 4) {
-      const recent = steady.slice(0, 2).map((r) => splitPer500(r));
-      const older = steady.slice(2, 4).map((r) => splitPer500(r));
-      const avg = (a) => a.reduce((x, y) => x + y, 0) / a.length;
-      const diff = avg(older) - avg(recent);
-      if (diff > 1) tips.push({ kind: 'good', text: `Rolige roøkter går ${fmtNum(diff)} sek/500 m raskere enn før. Aerob form bedres!` });
-    }
-    const hard = sortedR.filter((r) => daysAgo(r.date) < 14 && /Intervall|Terskel|Test/.test(r.type)).length;
-    const easy = sortedR.filter((r) => daysAgo(r.date) < 14 && /Rolig|Moderat/.test(r.type)).length;
-    if (hard > easy && hard >= 2) tips.push({ kind: 'warn', text: 'Mange harde roøkter i det siste. Ca. 80 % av roingen bør være rolig (snakketempo, 18–22 tak/min).' });
+  const M = s.body.filter((b) => b.muscle).sort((a, b) => a.date.localeCompare(b.date));
+  if (M.length >= 2 && M[M.length - 1].muscle < M[M.length - 2].muscle - 0.7) {
+    tips.push({ kind: 'warn', text: `Muskelmassen falt ${fmtNum(M[M.length - 2].muscle - M[M.length - 1].muscle)} kg siden forrige måling. Mer protein, og ta styrkeøktene seriøst.` });
   }
-  if (!s.rows.length) tips.push({ kind: '', text: 'Logg roøktene dine under Roing – du får splitt, watt og fremgang automatisk.' });
+  const lastW = [...s.body].filter((b) => b.weight).sort((a, b) => b.date.localeCompare(a.date))[0];
+  if (!lastW || daysAgo(lastW.date) >= 7) tips.push({ kind: '', text: `Tid for ukens Tanita-veiing${wd === 'Mandag' ? ' i dag' : ''}: mandag morgen etter toalettet, før frokost.` });
 
-  // Protein
+  // --- Mat ---
   const days = [...new Set(s.food.filter((f) => daysAgo(f.date) < 7).map((f) => f.date))];
   if (days.length >= 3 && s.settings.proteinTarget) {
     const avgP = days.reduce((a, d) => a + foodTotals(d).protein, 0) / days.length;
-    if (avgP < s.settings.proteinTarget * 0.85) tips.push({ kind: 'warn', text: `Snitt protein siste uke: ${Math.round(avgP)} g/dag (mål ${s.settings.proteinTarget} g). Legg inn f.eks. skyr, cottage cheese eller kylling.` });
-    else tips.push({ kind: 'good', text: `Proteinmålet nås godt: snitt ${Math.round(avgP)} g/dag siste uke.` });
+    if (avgP < s.settings.proteinTarget * 0.9) tips.push({ kind: 'warn', text: `Snitt protein siste uke: ${Math.round(avgP)} g/dag (mål ${s.settings.proteinTarget} g). Ha nødmaten klar: kokte egg, proteinyoghurt, proteinrundstykker i fryseren.` });
+    else tips.push({ kind: 'good', text: `Proteinmålet nås: snitt ${Math.round(avgP)} g/dag siste uke.` });
   }
+
+  // --- Vane ---
+  const pu = s.habits?.pushups || [];
+  if (!pu.includes(t) && new Date().getHours() < 12) tips.push({ kind: '', text: 'Morgenvanen: 10 armhevinger. Huk av på forsiden når de er tatt.' });
+
+  if (!tips.length) tips.push({ kind: 'good', text: 'Alt ser bra ut. Følg planen og logg øktene – da kan Claude justere ut fra tallene dine.' });
   return tips;
 }
 
@@ -323,21 +404,38 @@ export function buildSnapshot({ weeks = 8 } = {}) {
   const s = state;
   const cutoff = (iso) => daysAgo(iso) <= weeks * 7;
   const lines = [];
-  lines.push(`# Treningsdagbok – data per ${today()}`);
+  lines.push(`# Treningsdagbok – data per ${today()} (${weekdayName(today())})`);
   const st = s.settings;
-  lines.push(`Navn: ${st.name || '-'} | Høyde: ${st.heightCm || '-'} cm | Mål: ${st.goal || '-'}`);
+  const g = s.goals || {};
+  lines.push(`Navn: ${st.name || '-'} | Høyde: ${st.heightCm || '-'} cm`);
+  lines.push(`Mål: ${st.goal || '-'}`);
+  if (g.weight) lines.push(`Målverdier: vekt ${g.weight} kg, fett ${g.fat} %, fettmasse ${g.fatMass} kg, muskelmasse beholdes på ${g.muscle} kg, visceralt fett under ${g.visceral}, innen ${g.targetDate}`);
   lines.push(`Ernæringsmål: ${st.kcalTarget || '-'} kcal, ${st.proteinTarget || '-'} g protein per dag`);
 
-  lines.push(`\n## Nåværende treningsplan: ${s.plan.name}`);
+  lines.push(`\n## Nåværende plan: ${s.plan.name}`);
+  if (s.plan.schedule) lines.push('Ukeplan: ' + WEEKDAYS.map((d) => {
+    const v = s.plan.schedule[d];
+    return `${d} ${v === 'row' ? 'roing hjemme' : v === 'rest' ? 'hvile' : (s.plan.days.find((x) => x.id === v)?.name || v)}`;
+  }).join(', '));
   s.plan.days.forEach((d) => {
     lines.push(`- ${d.name}: ` + d.exercises.map((e) => `${e.name} ${e.sets}x${e.reps}${e.note ? ` (${e.note})` : ''}`).join('; '));
   });
   if (s.plan.rowing) lines.push(`- Roing: ${s.plan.rowing}`);
+  if (s.plan.rowProgram?.length) {
+    const w = rowWeek(today());
+    lines.push(`Roprogram (${s.plan.rowProgram.length} uker, start ${st.rowStartDate || 'ikke satt'}; nå uke ${w ?? (st.rowStartDate && today() < st.rowStartDate ? 'før start' : 'utenfor programmet')}):`);
+    s.plan.rowProgram.forEach((wk, i) => lines.push(`  Uke ${i + 1} ${wk.phase}: ` + Object.entries(wk.sessions).map(([d, x]) => `${d} ${x}`).join('; ')));
+  }
+  (s.plan.rules || []).forEach((r) => {
+    lines.push(`\n### ${r.title}`);
+    if (r.intro) lines.push(r.intro);
+    r.items.forEach((x) => lines.push(`- ${x}`));
+  });
 
   const W = s.workouts.filter((w) => cutoff(w.date)).sort((a, b) => a.date.localeCompare(b.date));
   lines.push(`\n## Styrkeøkter siste ${weeks} uker (${W.length} stk). Format: øvelse: kg×reps per sett`);
   W.forEach((w) => {
-    lines.push(`${w.date} ${w.dayName || ''}${w.rpe ? ` RPE ${w.rpe}` : ''}${w.note ? ` – "${w.note}"` : ''}`);
+    lines.push(`${w.date} ${w.dayName || ''}${w.rpe ? ` RPE ${w.rpe}` : ''}${w.durationMin ? ` ${w.durationMin} min` : ''}${w.note ? ` – "${w.note}"` : ''}`);
     w.exercises.forEach((e) => {
       if (!e.sets.some((x) => x.r > 0)) return;
       lines.push(`  ${e.name}${e.extra ? ' [ekstra]' : ''}: ${describeSets(e.sets.filter((x) => x.r > 0))}`);
@@ -348,17 +446,23 @@ export function buildSnapshot({ weeks = 8 } = {}) {
   lines.push(`\n## Roøkter siste ${weeks} uker (${R.length} stk)`);
   R.forEach((r) => {
     const sp = splitPer500(r);
-    lines.push(`${r.date} ${r.type}: ${r.distance} m på ${fmtTime(r.timeSec)}, splitt ${fmtTime(sp, 1)}/500m, ${Math.round(rowWatt(r)) || '-'} W` +
-      `${r.spm ? `, ${r.spm} tak/min` : ''}${r.hr ? `, puls ${r.hr}` : ''}${r.kcal ? `, ${r.kcal} kcal` : ''}${r.note ? ` – "${r.note}"` : ''}`);
+    lines.push(`${r.date}${r.week ? ` (uke ${r.week})` : ''} ${r.type}: ${r.distance} m på ${fmtTime(r.timeSec)}, splitt ${fmtTime(sp, 1)}/500m, ${Math.round(rowWatt(r)) || '-'} W` +
+      `${r.spm ? `, ${r.spm} tak/min` : ''}${r.damper ? `, damper ${r.damper}` : ''}${r.hr ? `, puls ${r.hr}` : ''}${r.kcal ? `, ${r.kcal} kcal` : ''}` +
+      `${r.planned ? ` [plan: ${r.planned}]` : ''}${r.note ? ` – "${r.note}"` : ''}`);
   });
 
   const B = [...s.body].sort((a, b) => a.date.localeCompare(b.date)).slice(-16);
-  lines.push(`\n## Kroppsmål (siste ${B.length})`);
+  lines.push(`\n## Kroppsmål / Tanita (siste ${B.length})`);
   B.forEach((b) => {
-    const parts = [['vekt', b.weight, 'kg'], ['midje', b.waist, 'cm'], ['hofte', b.hip, 'cm'], ['bryst', b.chest, 'cm'], ['arm', b.arm, 'cm'], ['lår', b.thigh, 'cm'], ['fett', b.fat, '%']]
-      .filter((p) => p[1]).map((p) => `${p[0]} ${p[1]} ${p[2]}`);
+    const parts = [['vekt', b.weight, 'kg'], ['midje', b.waist, 'cm'], ['fett', b.fat, '%'], ['fettmasse', b.fatMass, 'kg'], ['muskelmasse', b.muscle, 'kg'], ['visceralt', b.visceral, ''], ['BMR', b.bmr, 'kcal'], ['hofte', b.hip, 'cm'], ['bryst', b.chest, 'cm'], ['arm', b.arm, 'cm']]
+      .filter((p) => p[1]).map((p) => `${p[0]} ${p[1]}${p[2] ? ' ' + p[2] : ''}`);
     lines.push(`${b.date}: ${parts.join(', ')}${b.note ? ` – "${b.note}"` : ''}`);
   });
+  const rate = weightRate();
+  if (rate) lines.push(`Vektendring: ${fmtNum(rate.perWeek, 2)} kg/uke over ${fmtNum(rate.weeks)} uker`);
+
+  const pu = (s.habits?.pushups || []).filter((d) => daysAgo(d) < 14).length;
+  lines.push(`\n## Vane: 10 armhevinger om morgenen – ${pu} av de siste 14 dagene`);
 
   const foodDays = [...new Set(s.food.filter((f) => daysAgo(f.date) < 14).map((f) => f.date))].sort();
   lines.push(`\n## Matlogg siste 14 dager (${foodDays.length} dager logget)`);
