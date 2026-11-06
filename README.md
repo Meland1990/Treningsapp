@@ -11,7 +11,7 @@ Alle data lagres lokalt på enheten.
 **🏋️ Styrke**
 - Velg dagens økt fra treningsplanen. Øvelser, sett og reps fylles inn automatisk.
 - Før inn kg og reps per sett. Du kan legge til sett, fjerne øvelser og **legge til ekstra øvelser**.
-- **Forslag til vekt** (dobbel progresjon): klarer du toppen av rep-intervallet i alle sett, foreslås +2,5 kg (overkropp) eller +5 kg (underkropp). Står du fast i 3 økter, foreslås en lettere periode (deload).
+- **Forslag til vekt** (dobbel progresjon): klarer du toppen av rep-intervallet i alle sett, foreslås +2,5 kg eller neste manual, og du starter nederst i intervallet igjen (som i planen). Står du fast i 3 økter, foreslås en lettere periode.
 - Historikk som kan redigeres, graf for estimert 1RM og tyngste sett, ukentlig volum og rekorder.
 
 **🚣 Roing (romaskin)**
@@ -77,7 +77,7 @@ python3 -m http.server 8000
 | `index.html` | Skall, navigasjon |
 | `app.js` | Visninger og hendelser |
 | `myplan.js` | Planen din: økter, ukeplan, roprogram, regler, mål, matplan og handleliste |
-| `data.js` | Lagring, eksempelplan, beregninger (1RM, splitt, watt), tips og datasammendrag til Claude |
+| `data.js` | Lagring, beregninger (1RM, splitt, watt), tips og datasammendrag til Claude |
 | `charts.js` | SVG-grafer uten eksterne biblioteker |
 | `coach.js` | Kobling til Claude (Anthropic SDK) |
 | `sw.js`, `manifest.webmanifest` | Offline-støtte og installasjon som app |
