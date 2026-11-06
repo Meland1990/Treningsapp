@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="no">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Treningsdagbok</title>
+  <meta name="theme-color" content="#0f172a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Treningsdagbok">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1 id="viewTitle">Oversikt</h1>
+    <button class="icon-btn" id="settingsBtn" aria-label="Innstillinger">⚙︎</button>
+  </header>
+
+  <main id="view" class="view"></main>
+
+  <nav class="tabbar" id="tabbar">
+    <button data-tab="home" class="active"><span>🏠</span>Hjem</button>
+    <button data-tab="strength"><span>🏋️</span>Styrke</button>
+    <button data-tab="row"><span>🚣</span>Roing</button>
+    <button data-tab="body"><span>📏</span>Kropp</button>
+    <button data-tab="food"><span>🥗</span>Mat</button>
+    <button data-tab="coach"><span>🤖</span>Coach</button>
+  </nav>
+
+  <div id="toast" class="toast" hidden></div>
+  <dialog id="modal"><div id="modalBody"></div></dialog>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
