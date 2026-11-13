@@ -2,6 +2,23 @@
 // Dette er standardinnholdet appen starter med. Alt kan endres under ⚙︎ Innstillinger
 // eller ved at Claude-coachen foreslår en ny blokk.
 
+// ---------------------------------------------------------------------------
+// PLANVERSJON – les dette før du endrer planen (se også CLAUDE.md).
+// Telefonen lagrer planen lokalt. Den henter en ny plan herfra bare når
+// revision er høyere enn den telefonen har. Øk derfor revision med 1 ved hver
+// endring, skriv kort hva som er nytt i note, og list delene som skal byttes ut
+// i parts. Loggede økter, roøkter, kroppsmål og matlogg røres aldri.
+//   parts: 'plan' (økter, ukeplan, roprogram, regler), 'mealPlan', 'shopping', 'goals'
+//   settings: valgfritt, f.eks. { kcalTarget: 2000, proteinTarget: 170, rowStartDate: '2026-11-09' }
+// ---------------------------------------------------------------------------
+export const PLAN_UPDATE = {
+  revision: 1,
+  date: '2026-11-13',
+  note: 'Startversjon av planen.',
+  parts: [],
+  settings: {},
+};
+
 export const MY_PLAN = {
   name: 'Treningsplan – 95 til 85 kg',
   // Styrke på senteret. Bein trenes ikke her – de får nok fra roingen.

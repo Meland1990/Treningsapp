@@ -61,6 +61,11 @@ Der kan du også endre økter, ukeplan og roprogram. Etter uke 12 kan Claude-coa
 
 Nøkkelen lagres bare i nettleseren på enheten din og sendes kun til Anthropic.
 
+## Oppdatere planen fra trenerchatten
+Planen ligger i `myplan.js`. Når den endres og `PLAN_UPDATE.revision` økes, henter appen den nye planen
+neste gang den åpnes, viser hva som er nytt og har en Angre-knapp. Loggede data røres ikke.
+Fremgangsmåten for Claude står i `CLAUDE.md`.
+
 ## Sikkerhetskopi og flere enheter
 Dataene ligger i nettleseren (localStorage). Bruk ⚙︎ → **Last ned sikkerhetskopi** jevnlig.
 Med samme fil kan du flytte data mellom enheter (**Gjenopprett fra fil**).

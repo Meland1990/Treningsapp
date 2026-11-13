@@ -1,5 +1,5 @@
 // Lagring, standarddata og beregninger. Alt lagres lokalt på enheten (localStorage).
-import { MY_PLAN, MY_GOALS, MY_START_BODY, MY_MEAL_PLAN, MY_SHOPPING } from './myplan.js';
+import { MY_PLAN, MY_GOALS, MY_START_BODY, MY_MEAL_PLAN, MY_SHOPPING, PLAN_UPDATE } from './myplan.js';
 
 const KEY = 'treningsdagbok_v1';
 
@@ -26,6 +26,7 @@ const DEFAULT_STATE = {
   },
   goals: MY_GOALS,
   plan: MY_PLAN,
+  planRevision: PLAN_UPDATE.revision,
   workouts: [],   // { id, date, dayId, dayName, exercises:[{name, target, extra, sets:[{w, r}]}], note, rpe, durationMin }
   rows: [],       // { id, date, type, distance, timeSec, spm, watt, hr, kcal, damper, drag, week, planned, note }
   body: [MY_START_BODY], // { id, date, weight, waist, fat, fatMass, muscle, visceral, bmr, hip, chest, arm, note }
@@ -37,7 +38,38 @@ const DEFAULT_STATE = {
   coach: { messages: [], snapshot: '', startedAt: null },
 };
 
-let state = load();
+const PLAN_SOURCES = { plan: MY_PLAN, mealPlan: MY_MEAL_PLAN, shopping: MY_SHOPPING, goals: MY_GOALS };
+let state = applyPlanUpdate(load());
+
+// Henter ny plan fra myplan.js når PLAN_UPDATE.revision er høyere enn den som er lagret.
+// Data som ble lagret før versjonering fantes, regnes som revisjon 1.
+function applyPlanUpdate(s) {
+  const cur = s.planRevision || 1;
+  if (PLAN_UPDATE.revision <= cur) { s.planRevision = Math.max(cur, PLAN_UPDATE.revision); return s; }
+  const backup = { date: new Date().toISOString().slice(0, 10), revision: cur, settings: { ...s.settings } };
+  (PLAN_UPDATE.parts || []).forEach((k) => {
+    if (!PLAN_SOURCES[k]) return;
+    backup[k] = s[k];
+    s[k] = structuredClone(PLAN_SOURCES[k]);
+  });
+  Object.assign(s.settings, PLAN_UPDATE.settings || {});
+  s.planBackups = [backup, ...(s.planBackups || [])].slice(0, 3);
+  s.planRevision = PLAN_UPDATE.revision;
+  s.planNotice = { revision: PLAN_UPDATE.revision, date: PLAN_UPDATE.date, note: PLAN_UPDATE.note };
+  try { localStorage.setItem(KEY, JSON.stringify(s)); } catch { /* lagres ved neste save */ }
+  return s;
+}
+
+// Angrer siste planoppdatering (henter forrige plan fra sikkerhetskopien).
+export function undoPlanUpdate() {
+  const b = (state.planBackups || [])[0];
+  if (!b) return false;
+  Object.keys(PLAN_SOURCES).forEach((k) => { if (k in b) state[k] = b[k]; });
+  state.settings = { ...state.settings, ...b.settings };
+  state.planBackups = state.planBackups.slice(1);
+  save();
+  return true;
+}
 
 function load() {
   try {
@@ -49,6 +81,7 @@ function load() {
       ...parsed,
       settings: { ...DEFAULT_STATE.settings, ...(parsed.settings || {}) },
       coach: { ...DEFAULT_STATE.coach, ...(parsed.coach || {}) },
+      planRevision: parsed.planRevision || 1,
     };
   } catch (e) {
     console.error('Kunne ikke lese lagrede data', e);

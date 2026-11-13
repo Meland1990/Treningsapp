@@ -4,6 +4,7 @@ import {
   suggestNext, describeSets, fmtNum, foodTotals, generateTips, buildSnapshot,
   WEEKDAYS, MEALS, ROW_TYPES, DEFAULT_PLAN, toISODate, rowWeek, rowSessionFor, scheduleFor,
   isEasy, EASY_SPLIT, weightRate,
+  undoPlanUpdate,
 } from './data.js';
 import { PROTEIN_ROLLS } from './myplan.js';
 import { lineChart, barChart } from './charts.js';
@@ -844,6 +845,7 @@ document.addEventListener('click', async (e) => {
     case 'goto': return setTab(el.dataset.tab);
     case 'open-settings': return setTab('settings');
     case 'close-modal': return $('#modal').close();
+    case 'undo-plan': $('#modal').close(); return undoPlanUpdate() ? (toast('Forrige plan er tilbake'), render()) : toast('Fant ingen tidligere plan');
     case 'strength-sub': ui.strengthSub = el.dataset.v; saveUi(); return render();
     case 'food-sub': ui.foodSub = el.dataset.v; saveUi(); return render();
     case 'row-metric': ui.rowMetric = el.dataset.v; saveUi(); return render();
@@ -1125,3 +1127,20 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
 }
 
 setTab(TITLES[ui.tab] ? ui.tab : 'home');
+
+// Ny plan fra coachen er hentet: vis hva som er nytt.
+(function showPlanNotice() {
+  const s = S();
+  if (!s.planNotice) return;
+  const n = s.planNotice;
+  delete s.planNotice;
+  save();
+  openModal(`<h2>Planen er oppdatert</h2>
+    <p class="muted small">Versjon ${n.revision} · ${esc(n.date)}</p>
+    <p>${esc(n.note)}</p>
+    <p class="muted small">Loggede økter, kroppsmål og mat er beholdt.</p>
+    <div class="row">
+      <button class="btn" data-action="close-modal">OK</button>
+      ${(s.planBackups || []).length ? '<button class="btn ghost" data-action="undo-plan">Angre</button>' : ''}
+    </div>`);
+})();
