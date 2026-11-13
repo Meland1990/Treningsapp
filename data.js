@@ -6,7 +6,8 @@ const KEY = 'treningsdagbok_v1';
 export const WEEKDAYS = ['Mandag', 'Tirsdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lørdag', 'Søndag'];
 export const MEALS = ['Frokost', 'Lunsj', 'Mellommåltid', 'Middag', 'Kveldsmat'];
 export const ROW_TYPES = ['Rolig', 'Intervall', 'Test 2000 m', 'Test 5000 m', 'Annet'];
-export const EASY_SPLIT = [150, 160]; // 2:30–2:40 per 500 m
+export const EASY_SPLIT = [155, 160]; // 2:35–2:40 per 500 m
+export const EASY_HR_MAX = 165;
 export const EASY_SPM = [18, 22];
 
 export const DEFAULT_PLAN = MY_PLAN;
@@ -227,7 +228,7 @@ export function rowSessionFor(iso) {
   if (!desc) return null;
   const kind = sessionKind(desc);
   let target;
-  if (kind === 'Rolig') target = 'Rolig: 2:30–2:40/500, 18–22 tak/min, damper 3–5. Start med 5 min ekstra rolig.';
+  if (kind === 'Rolig') target = 'Rolig: 2:35–2:40/500, 18–22 tak/min, damper 3–5, puls under 165. Start med 5 min ekstra rolig.';
   else if (kind === 'Intervall') {
     target = '10 min rolig oppvarming, 5 min rolig til slutt. Alle drag i samme tempo.';
     if (/500 m/.test(desc)) {
@@ -279,9 +280,18 @@ const DUMBBELL = /(manual|hantel)/i;
 
 // Dobbel progresjon (fra planen): klarer du toppen av intervallet i alle settene,
 // øk med 2,5 kg eller neste manual, og start nederst i intervallet igjen.
-export function suggestNext(name, repsTarget) {
+// Leser vekter fra notatet i planen: «60 kg i alle sett. Ved 3 × 10 → 62,5 kg».
+function noteWeights(note) {
+  const n = (x) => (x == null ? null : Number(x.replace(',', '.')));
+  const start = (note || '').match(/^\s*(\d+(?:[.,]\d+)?)\s*kg/i);
+  const next = (note || '').match(/→\s*(\d+(?:[.,]\d+)?)\s*kg/i);
+  return { start: start ? n(start[1]) : null, next: next ? n(next[1]) : null };
+}
+
+export function suggestNext(name, repsTarget, note) {
   const hist = exerciseHistory(name);
-  if (!hist.length) return null;
+  const nw = noteWeights(note);
+  if (!hist.length) return nw.start ? { weight: nw.start, text: `Startvekt fra planen: ${fmtNum(nw.start)} kg i alle sett.` } : null;
   const last = hist[hist.length - 1];
   const range = parseRepRange(repsTarget || last.target);
   const topW = last.top;
@@ -289,8 +299,10 @@ export function suggestNext(name, repsTarget) {
   const workSets = last.sets.filter((s) => Number(s.w) === topW);
   const step = 2.5;
   if (workSets.every((s) => s.r >= range.hi)) {
-    const how = DUMBBELL.test(name) ? 'neste manual' : `${fmtNum(topW + step)} kg`;
-    return { weight: topW + step, text: `Alle sett på ${range.hi}+ reps sist – gå opp til ${how} og start på ${range.lo} reps igjen.` };
+    const planned = nw.next && nw.next > topW ? nw.next : null;
+    const nextW = planned || topW + step;
+    const how = planned ? `${fmtNum(planned)} kg` : DUMBBELL.test(name) ? 'neste manual' : `${fmtNum(nextW)} kg`;
+    return { weight: nextW, text: `Alle sett på ${range.hi}+ reps sist – gå opp til ${how} og start på ${range.lo} reps igjen.` };
   }
   if (workSets.some((s) => s.r < range.lo)) {
     // Sjekk om det har stått stille i 3 økter
@@ -345,10 +357,12 @@ export function generateTips() {
   const recentEasy = sortedR.filter((r) => isEasy(r) && daysAgo(r.date) < 14);
   const tooFast = recentEasy.filter((r) => splitPer500(r) < EASY_SPLIT[0] - 0.5);
   if (tooFast.length) {
-    tips.push({ kind: 'warn', text: `${tooFast.length} av de siste rolige roøktene gikk raskere enn 2:30/500 (sist ${fmtTime(splitPer500(tooFast[0]), 1)}). Rolig betyr rolig – du skal kunne snakke i hele setninger. Det er dette som hindrer at du går tom.` });
+    tips.push({ kind: 'warn', text: `${tooFast.length} av de siste rolige roøktene gikk raskere enn 2:35/500 (sist ${fmtTime(splitPer500(tooFast[0]), 1)}). Rolig betyr rolig – du skal kunne snakke i hele setninger. Det er dette som hindrer at du går tom.` });
   } else if (recentEasy.length >= 3) {
-    tips.push({ kind: 'good', text: `Rolige økter holdes i riktig tempo (2:30–2:40/500). Det er nettopp dette som bygger grunnformen. 👍` });
+    tips.push({ kind: 'good', text: `Rolige økter holdes i riktig tempo (2:35–2:40/500). Det er nettopp dette som bygger grunnformen. 👍` });
   }
+  const highHr = recentEasy.filter((r) => r.hr && r.hr > EASY_HR_MAX);
+  if (highHr.length) tips.push({ kind: 'warn', text: `Snittpuls over ${EASY_HR_MAX} på ${highHr.length} rolig(e) økt(er). Kryper pulsen over, slakk 3–5 sek på splitten med en gang.` });
   const highSpm = recentEasy.filter((r) => r.spm && r.spm > EASY_SPM[1]);
   if (highSpm.length) tips.push({ kind: 'warn', text: `Tak/min over 22 på ${highSpm.length} rolige økt(er). Senk takfrekvensen til 18–22 og ta lengre, rolige tak.` });
   const highDamper = sortedR.filter((r) => daysAgo(r.date) < 14 && r.damper > 5);
@@ -356,8 +370,8 @@ export function generateTips() {
 
   const thisWeekHard = s.rows.filter((r) => isHard(r) && isoWeek(r.date) === isoWeek(t));
   if (thisWeekHard.length > 1) tips.push({ kind: 'warn', text: `${thisWeekHard.length} harde roøkter denne uka. Regelen er maks én hard økt i uka.` });
-  const hardEarly = s.rows.filter((r) => isHard(r) && rowWeek(r.date) && rowWeek(r.date) < 5);
-  if (hardEarly.length) tips.push({ kind: 'warn', text: 'Hard roøkt logget før uke 5. De fire første ukene skal være bare rolig – grunnformen først.' });
+  const hardEarly = s.rows.filter((r) => isHard(r) && rowWeek(r.date) && rowWeek(r.date) < 3);
+  if (hardEarly.length) tips.push({ kind: 'warn', text: 'Hard roøkt logget før uke 3. De to første ukene skal være bare rolig – grunnformen først.' });
 
   // To roøkter på rad i de første fire ukene
   const dates = [...new Set(s.rows.map((r) => r.date))].sort();
@@ -414,7 +428,7 @@ export function generateTips() {
     tips.push({ kind: 'warn', text: `Muskelmassen falt ${fmtNum(M[M.length - 2].muscle - M[M.length - 1].muscle)} kg siden forrige måling. Mer protein, og ta styrkeøktene seriøst.` });
   }
   const lastW = [...s.body].filter((b) => b.weight).sort((a, b) => b.date.localeCompare(a.date))[0];
-  if (!lastW || daysAgo(lastW.date) >= 7) tips.push({ kind: '', text: `Tid for ukens Tanita-veiing${wd === 'Mandag' ? ' i dag' : ''}: mandag morgen etter toalettet, før frokost.` });
+  if (!lastW || daysAgo(lastW.date) >= 7) tips.push({ kind: '', text: `Tid for ukens Tanita-veiing${wd === 'Fredag' ? ' i dag' : ''}: fredag morgen etter toalettet, før frokost.` });
 
   // --- Mat ---
   const days = [...new Set(s.food.filter((f) => daysAgo(f.date) < 7).map((f) => f.date))];

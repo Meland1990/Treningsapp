@@ -175,7 +175,7 @@ function todayCard() {
     const before = start && t < start;
     return `<div class="card">${header}
       ${sess ? `<p style="margin:0 0 6px">🚣 <b>${esc(sess.desc)}</b></p><p class="muted small" style="margin:0 0 10px">${esc(sess.target)}</p>`
-        : `<p style="margin:0 0 10px">🚣 <b>Roing hjemme</b>${before ? `<br><span class="muted small">Roprogrammet starter ${fmtDate(start)}. Frem til da: rolig, 2:30–2:40/500.</span>` : ''}</p>`}
+        : `<p style="margin:0 0 10px">🚣 <b>Roing hjemme</b>${before ? `<br><span class="muted small">Roprogrammet starter ${fmtDate(start)}. Frem til da: rolig, 2:35–2:40/500.</span>` : ''}</p>`}
       ${rowedToday.length ? `<div class="tip good">✔ Logget: ${rowedToday.map((r) => `${fmtNum(r.distance)} m på ${fmtTime(r.timeSec)}`).join(', ')}</div>` : ''}
       <button class="btn" data-action="goto" data-tab="row">${rowedToday.length ? 'Se roing' : 'Logg roøkta'}</button></div>`;
   }
@@ -235,7 +235,7 @@ function newDraft(dayId) {
   const s = S();
   const day = s.plan.days.find((d) => d.id === dayId);
   const exercises = (day?.exercises || []).map((e) => {
-    const sug = suggestNext(e.name, e.reps);
+    const sug = suggestNext(e.name, e.reps, e.note);
     return {
       name: e.name,
       target: `${e.sets}×${e.reps}`,
@@ -294,7 +294,7 @@ function strengthLog() {
 }
 
 function exerciseCard(ex, i) {
-  const sug = suggestNext(ex.name, ex.reps);
+  const sug = suggestNext(ex.name, ex.reps, ex.note);
   return `<div class="card exercise">
     <div class="head"><div><div class="name">${esc(ex.name)}${ex.extra ? ' <span class="muted small">(ekstra)</span>' : ''}</div>
       ${ex.target ? `<div class="target">Mål: ${esc(ex.target)}${ex.note ? ' · ' + esc(ex.note) : ''}</div>` : ''}</div>
@@ -434,7 +434,7 @@ function viewRow() {
       <h2>Historikk</h2>
       ${R.length ? `<ul class="list">${R.map((r) => `<li><div class="top"><span><b>${esc(r.type)}</b>${r.week ? ` <span class="muted small">uke ${r.week}</span>` : ''} · ${fmtNum(r.distance)} m · ${fmtTime(r.timeSec, 1)}</span><span class="muted small">${fmtDate(r.date)}</span></div>
         <div class="small muted">${fmtTime(splitPer500(r), 1)}/500 m · ${Math.round(rowWatt(r)) || '–'} W${r.spm ? ' · ' + r.spm + ' t/min' : ''}${r.damper ? ' · damper ' + fmtNum(r.damper) : ''}${r.hr ? ' · ♥ ' + r.hr : ''}${r.kcal ? ' · ' + r.kcal + ' kcal' : ''}${r.drag ? ' · DF ' + r.drag : ''}</div>
-        ${isEasy(r) && splitPer500(r) < EASY_SPLIT[0] - 0.5 ? '<div class="small" style="color:var(--warn)">⚠️ For raskt til rolig økt (mål 2:30–2:40)</div>' : ''}
+        ${isEasy(r) && splitPer500(r) < EASY_SPLIT[0] - 0.5 ? '<div class="small" style="color:var(--warn)">⚠️ For raskt til rolig økt (mål 2:35–2:40)</div>' : ''}
         ${isEasy(r) && r.spm > 22 ? '<div class="small" style="color:var(--warn)">⚠️ Tak/min over 22</div>' : ''}
         ${r.note ? `<div class="small">“${esc(r.note)}”</div>` : ''}
         <button class="btn danger small" style="margin-top:6px" data-action="delete-row" data-id="${r.id}">Slett</button></li>`).join('')}</ul>` : '<div class="empty">Ingen roøkter ennå.</div>'}
@@ -513,7 +513,7 @@ function viewBody() {
         <div class="field"><label>Dato</label><input type="date" name="date" value="${today()}"></div>
         <div class="grid2">${BODY_FIELDS.map(([k, l, u]) => `<div class="field"><label>${l}${u ? ` (${u})` : ''}</label><input name="${k}" inputmode="decimal"></div>`).join('')}</div>
         <div class="field"><label>Notat</label><input name="note"></div>
-        <p class="muted small">Mandag morgen etter toalettet, før frokost. Midjen måles i navlehøyde etter en rolig utpust. Fyll inn det du har – alle felt er valgfrie.</p>
+        <p class="muted small">Fredag morgen etter toalettet, før frokost. Midjen måles i navlehøyde etter en rolig utpust. Fyll inn det du har – alle felt er valgfrie.</p>
         <button class="btn" type="submit">Lagre måling</button>
       </form>
     </div>
@@ -1078,7 +1078,7 @@ document.addEventListener('submit', async (e) => {
       s.rows.push(rec);
       save();
       const sp = splitPer500(rec);
-      if (isEasy(rec) && sp < EASY_SPLIT[0] - 0.5) toast(`Lagret – men ${fmtTime(sp, 1)}/500 er for raskt for rolig. Neste gang: 2:30–2:40.`);
+      if (isEasy(rec) && sp < EASY_SPLIT[0] - 0.5) toast(`Lagret – men ${fmtTime(sp, 1)}/500 er for raskt for rolig. Neste gang: 2:35–2:40.`);
       else if (isEasy(rec) && rec.spm > 22) toast('Lagret – hold tak/min på 18–22 på rolige økter.');
       else if (rec.damper > 5) toast('Lagret – husk damper 3–5 for korsryggens skyld.');
       else toast('Roøkt lagret 🚣');

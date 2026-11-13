@@ -12,10 +12,10 @@
 //   settings: valgfritt, f.eks. { kcalTarget: 2000, proteinTarget: 170, rowStartDate: '2026-11-09' }
 // ---------------------------------------------------------------------------
 export const PLAN_UPDATE = {
-  revision: 1,
+  revision: 2,
   date: '2026-11-13',
-  note: 'Startversjon av planen.',
-  parts: [],
+  note: 'Startvekter for neste uke står på hver øvelse – én vekt i alle tre settene, øk først når du klarer toppen av intervallet i alle settene. Rolig roing er nå 2:35–2:40/500 med puls under 165 og flat kurve. Veiing er flyttet til fredag morgen.',
+  parts: ['plan'],
   settings: {},
 };
 
@@ -26,32 +26,32 @@ export const MY_PLAN = {
     {
       id: 'a', name: 'Økt A – bryst, skuldre, triceps',
       exercises: [
-        { name: 'Benkpress med stang', sets: 3, reps: '6-10', note: 'Pause 1,5–2 min. Føttene flatt i gulvet, uten stor svai' },
-        { name: 'Skrå manualpress', sets: 3, reps: '8-12', note: 'Pause 1,5–2 min' },
-        { name: 'Skulderpress med manualer', sets: 3, reps: '8-12', note: 'Sittende med ryggstøtte' },
-        { name: 'Sidehev med manualer', sets: 3, reps: '12-15' },
-        { name: 'Triceps pushdown i kabel', sets: 3, reps: '10-15' },
+        { name: 'Benkpress med stang', sets: 3, reps: '6-10', note: '60 kg i alle sett. Ved 3 × 10 → 62,5 kg. Pause 1,5–2 min. Føttene flatt, uten stor svai.' },
+        { name: 'Skrå manualpress', sets: 3, reps: '8-12', note: '20 kg i alle sett. Ved 3 × 12 → 22 kg. Pause 1,5–2 min.' },
+        { name: 'Skulderpress med manualer', sets: 3, reps: '8-12', note: '12 kg i alle sett. Ved 3 × 12 → 14 kg. Sittende med ryggstøtte.' },
+        { name: 'Sidehev med manualer', sets: 3, reps: '12-15', note: '5 kg (6 kg hvis 5 ikke finnes). Ved 3 × 15 → neste manual.' },
+        { name: 'Triceps pushdown i kabel', sets: 3, reps: '10-15', note: '27,5 kg i alle sett, V-stang. Ved 3 × 15 → 30 kg.' },
       ],
     },
     {
       id: 'b', name: 'Økt B – bryst, rygg, biceps',
       exercises: [
-        { name: 'Brystpress i maskin', sets: 3, reps: '8-12', note: 'Pause 1,5–2 min' },
-        { name: 'Nedtrekk, bredt grep', sets: 3, reps: '8-12', note: 'Pause 1,5–2 min' },
-        { name: 'Sittende roing med brystpute', sets: 3, reps: '10-12' },
-        { name: 'Flyes i kabel eller pec deck', sets: 3, reps: '12-15' },
-        { name: 'Bicepscurl med manualer', sets: 3, reps: '10-12' },
+        { name: 'Brystpress i maskin', sets: 3, reps: '8-12', note: '55 kg i alle sett. Ved 3 × 12 → 60 kg. Pause 1,5–2 min.' },
+        { name: 'Nedtrekk, bredt grep', sets: 3, reps: '8-12', note: '50 kg i alle sett. Ved 3 × 12 → 55 kg. Pause 1,5–2 min.' },
+        { name: 'Sittende roing med brystpute', sets: 3, reps: '10-12', note: '45 kg i alle sett. Ved 3 × 12 → 50 kg.' },
+        { name: 'Flyes i kabel eller pec deck', sets: 3, reps: '12-15', note: '15 kg i alle sett. Ved 3 × 15 → neste vekt.' },
+        { name: 'Bicepscurl med manualer', sets: 3, reps: '10-12', note: '12 kg i alle sett. Ved 3 × 12 → 14 kg.' },
       ],
     },
     {
       id: 'c', name: 'Økt C – helkropp (når det bare blir én økt)',
       exercises: [
-        { name: 'Benkpress med stang', sets: 3, reps: '6-10' },
-        { name: 'Skrå manualpress', sets: 3, reps: '8-12' },
-        { name: 'Nedtrekk, bredt grep', sets: 3, reps: '8-12' },
-        { name: 'Skulderpress med manualer', sets: 3, reps: '8-12', note: 'Sittende med ryggstøtte' },
-        { name: 'Bicepscurl med manualer', sets: 3, reps: '10-12', note: 'Supersett med pushdown, uten pause' },
-        { name: 'Triceps pushdown i kabel', sets: 3, reps: '10-15', note: 'Supersett med curl, 3 runder' },
+        { name: 'Benkpress med stang', sets: 3, reps: '6-10', note: '60 kg i alle sett. Pause 1,5–2 min.' },
+        { name: 'Skrå manualpress', sets: 3, reps: '8-12', note: '20 kg i alle sett.' },
+        { name: 'Nedtrekk, bredt grep', sets: 3, reps: '8-12', note: '50 kg i alle sett.' },
+        { name: 'Skulderpress med manualer', sets: 3, reps: '8-12', note: '12 kg. Sittende med ryggstøtte.' },
+        { name: 'Bicepscurl med manualer', sets: 3, reps: '10-12', note: '12 kg. Supersett med pushdown, uten pause.' },
+        { name: 'Triceps pushdown i kabel', sets: 3, reps: '10-15', note: '27,5 kg. Supersett med curl, 3 runder.' },
       ],
     },
   ],
@@ -59,7 +59,7 @@ export const MY_PLAN = {
   schedule: {
     Mandag: 'row', Tirsdag: 'a', Onsdag: 'row', Torsdag: 'rest', Fredag: 'b', Lørdag: 'row', Søndag: 'rest',
   },
-  rowing: 'Tre roøkter hjemme (man, ons, lør). Rolig = 2:30–2:40/500, 18–22 tak/min, damper 3–5. Maks én hard økt i uka, og først fra uke 5. Harde økter: 10 min rolig oppvarming og 5 min rolig til slutt.',
+  rowing: 'Tre roøkter hjemme (man, ons, lør). Rolig = 2:35–2:40/500, 18–22 tak/min, damper 3–5. Pulsen under 165 og skal flate ut etter oppvarmingen; kryper den over, slakk 3–5 sek på splitten med en gang. Ingen spurt på slutten – avslutt heller med 3 × 10 harde tak etter at klokka har stoppet. Maks én hard økt i uka, tidligst fra uke 3 hvis alle økter er gjennomført uten ryggplager.',
   // 12 uker i tre faser. Startdato settes under Innstillinger.
   rowProgram: [
     { phase: 'Grunnform', sessions: { Mandag: '15 min rolig', Onsdag: '15 min rolig', Lørdag: '15 min rolig' } },
@@ -80,8 +80,9 @@ export const MY_PLAN = {
       title: 'Spillereglene',
       intro: 'Du starter gjerne for hardt og går tom etter noen uker. Disse reglene er laget for å stoppe akkurat det.',
       items: [
-        'Rolig betyr rolig: 2:30–2:40/500 og 18–22 tak i minuttet. Du skal klare å snakke i hele setninger.',
-        'Maks én hard økt i uka, og først fra uke 5.',
+        'Rolig betyr rolig: 2:35–2:40/500, 18–22 tak i minuttet og pulsen under 165. Pulsen skal flate ut etter oppvarmingen – kryper den over, slakk 3–5 sek på splitten med en gang.',
+        'Ingen spurt på slutten. Avslutt heller med 3 × 10 harde tak etter at klokka har stoppet.',
+        'Maks én hard økt i uka, tidligst fra uke 3 og bare hvis alle økter er gjennomført uten ryggplager.',
         'Damper på 3–5. Høyere damper gir mest belastning på korsryggen, ikke mer trening.',
         'Korsryggen: bein, så kropp, så armer. Ikke len deg langt bakover i enden (ca. kl. 11 holder). Ikke nå langt frem med overkroppen.',
         'Fingrene: hold håndtaket løst med fingrene som kroker. Slapp tomlene. Trette fingre = for hardt grep.',
@@ -96,9 +97,9 @@ export const MY_PLAN = {
       title: 'Styrke på senteret',
       intro: 'Oppvarming: 5 min rolig på sykkel eller romaskin, og 2 lette sett av første øvelse.',
       items: [
-        'De to første ukene: velg vekter som føles litt for lette.',
+        'Startvektene står i notatet på hver øvelse. Bruk samme vekt i alle tre settene.',
         'Hvert sett skal ende tungt, men med 1–2 repetisjoner igjen i tanken.',
-        'Øk vekten når du klarer toppen av intervallet i alle tre settene: +2,5 kg eller neste manual. Start nederst i intervallet igjen.',
+        'Øk vekten først når du klarer toppen av intervallet i alle tre settene, til vekten som står i notatet. Start nederst i intervallet igjen.',
         'Pause 1,5–2 min på øvelse 1 og 2, ca. 1 min på resten.',
         'Ryggstøtte på skulderpress og brystpute på roingen skåner korsryggen.',
         'Uke uten senter: 4 sett armhevinger hjemme, 2–3 repetisjoner før du ikke klarer flere.',
@@ -119,7 +120,7 @@ export const MY_PLAN = {
     },
     {
       title: 'Oppfølging',
-      intro: 'Vei deg én gang i uka på Tanita-vekta, samme dag og tidspunkt: mandag morgen etter toalettet, før frokost.',
+      intro: 'Vei deg én gang i uka på Tanita-vekta, samme dag og tidspunkt: fredag morgen etter toalettet, før frokost.',
       items: [
         'Ned 0,4–0,6 kg i uka → fortsett som før.',
         'Ned mer enn 1 kg i uka → legg til et mellommåltid. For raskt tar muskler.',

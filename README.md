@@ -11,7 +11,7 @@ Alle data lagres lokalt på enheten.
 **🏋️ Styrke**
 - Velg dagens økt fra treningsplanen. Øvelser, sett og reps fylles inn automatisk.
 - Før inn kg og reps per sett. Du kan legge til sett, fjerne øvelser og **legge til ekstra øvelser**.
-- **Forslag til vekt** (dobbel progresjon): klarer du toppen av rep-intervallet i alle sett, foreslås +2,5 kg eller neste manual, og du starter nederst i intervallet igjen (som i planen). Står du fast i 3 økter, foreslås en lettere periode.
+- **Forslag til vekt** (dobbel progresjon): klarer du toppen av rep-intervallet i alle sett, foreslås vekten som står i notatet på øvelsen (ellers +2,5 kg eller neste manual), og du starter nederst i intervallet igjen (som i planen). Står du fast i 3 økter, foreslås en lettere periode.
 - Historikk som kan redigeres, graf for estimert 1RM og tyngste sett, ukentlig volum og rekorder.
 
 **🚣 Roing (romaskin)**
@@ -30,7 +30,7 @@ Alle data lagres lokalt på enheten.
 
 **🏠 Forsiden**: dagens økt etter ukeplanen (man/ons/lør roing, tir økt A, fre økt B, tor/søn hvile), uke X av 12 i roprogrammet, avkryssing for 10 armhevinger om morgenen, ukeoversikt og «Planen min» med alle reglene.
 
-**💡 Tips etter spillereglene**: advarer når rolige økter går raskere enn 2:30/500, over 22 tak/min eller med damper over 5, ved mer enn én hard økt i uka, harde økter før uke 5, to roøkter på rad i uke 1–4 og plager notert i øktene. Følger også oppfølgingstabellen for vekt (0,4–0,6 kg/uke) og muskelmasse, minner om mandagsveiing, og sier «hopp over» når en økt er bommet.
+**💡 Tips etter spillereglene**: advarer når rolige økter går raskere enn 2:35/500 eller med snittpuls over 165, over 22 tak/min eller med damper over 5, ved mer enn én hard økt i uka, harde økter før uke 3, to roøkter på rad i uke 1–4 og plager notert i øktene. Følger også oppfølgingstabellen for vekt (0,4–0,6 kg/uke) og muskelmasse, minner om fredagsveiing, og sier «hopp over» når en økt er bommet.
 
 **🤖 Claude-coach**
 - Claude får med treningsplanen og alt du har logget de siste 8 ukene. Du kan be om analyse, nytt program, matplan og rotips, eller stille egne spørsmål.
