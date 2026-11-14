@@ -12,9 +12,9 @@
 //   settings: valgfritt, f.eks. { kcalTarget: 2000, proteinTarget: 170, rowStartDate: '2026-11-09' }
 // ---------------------------------------------------------------------------
 export const PLAN_UPDATE = {
-  revision: 2,
-  date: '2026-11-13',
-  note: 'Startvekter for neste uke står på hver øvelse – én vekt i alle tre settene, øk først når du klarer toppen av intervallet i alle settene. Rolig roing er nå 2:35–2:40/500 med puls under 165 og flat kurve. Veiing er flyttet til fredag morgen.',
+  revision: 3,
+  date: '2026-11-15',
+  note: 'Uke 2: 3 × 20 min rolig. Start de første 5 minuttene på 2:38–2:40, og slakk 3 sek med en gang pulsen passerer 163 – da holder du deg under 165 hele økta.',
   parts: ['plan'],
   settings: {},
 };
@@ -59,7 +59,7 @@ export const MY_PLAN = {
   schedule: {
     Mandag: 'row', Tirsdag: 'a', Onsdag: 'row', Torsdag: 'rest', Fredag: 'b', Lørdag: 'row', Søndag: 'rest',
   },
-  rowing: 'Tre roøkter hjemme (man, ons, lør). Rolig = 2:35–2:40/500, 18–22 tak/min, damper 3–5. Pulsen under 165 og skal flate ut etter oppvarmingen; kryper den over, slakk 3–5 sek på splitten med en gang. Ingen spurt på slutten – avslutt heller med 3 × 10 harde tak etter at klokka har stoppet. Maks én hard økt i uka, tidligst fra uke 3 hvis alle økter er gjennomført uten ryggplager.',
+  rowing: 'Tre roøkter hjemme (man, ons, lør). Rolig = 2:35–2:40/500 (første 5 min 2:38–2:40), 18–22 tak/min, damper 3–5. Pulsen under 165; passerer den 163, slakk 3 sek med en gang og skal flate ut etter oppvarmingen; kryper den over, slakk 3–5 sek på splitten med en gang. Ingen spurt på slutten – avslutt heller med 3 × 10 harde tak etter at klokka har stoppet. Maks én hard økt i uka, tidligst fra uke 3 hvis alle økter er gjennomført uten ryggplager.',
   // 12 uker i tre faser. Startdato settes under Innstillinger.
   rowProgram: [
     { phase: 'Grunnform', sessions: { Mandag: '15 min rolig', Onsdag: '15 min rolig', Lørdag: '15 min rolig' } },
@@ -80,7 +80,8 @@ export const MY_PLAN = {
       title: 'Spillereglene',
       intro: 'Du starter gjerne for hardt og går tom etter noen uker. Disse reglene er laget for å stoppe akkurat det.',
       items: [
-        'Rolig betyr rolig: 2:35–2:40/500, 18–22 tak i minuttet og pulsen under 165. Pulsen skal flate ut etter oppvarmingen – kryper den over, slakk 3–5 sek på splitten med en gang.',
+        'Rolig betyr rolig: 2:35–2:40/500, 18–22 tak i minuttet og pulsen under 165. Pulsen skal flate ut etter oppvarmingen.',
+        'Start rolig: de første 5 minuttene på 2:38–2:40. Passerer pulsen 163, slakk 3 sek på splitten med en gang – ikke vent til neste splitt.',
         'Ingen spurt på slutten. Avslutt heller med 3 × 10 harde tak etter at klokka har stoppet.',
         'Maks én hard økt i uka, tidligst fra uke 3 og bare hvis alle økter er gjennomført uten ryggplager.',
         'Damper på 3–5. Høyere damper gir mest belastning på korsryggen, ikke mer trening.',
