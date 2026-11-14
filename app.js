@@ -31,7 +31,10 @@ const ui = {
   rowMetric: 'split',
   coachBusy: false,
   streamText: '',
+  editRowId: '',
+  editBodyId: '',
 };
+const timeVal = (t) => (isFinite(t) ? fmtTime(t, t % 1 ? 1 : 0) : '');
 try { Object.assign(ui, JSON.parse(localStorage.getItem('treningsdagbok_ui') || '{}'), { coachBusy: false, streamText: '', foodDate: today() }); } catch { /* ignorer */ }
 const saveUi = () => { try { localStorage.setItem('treningsdagbok_ui', JSON.stringify({ tab: ui.tab, strengthSub: ui.strengthSub, foodSub: ui.foodSub, progressExercise: ui.progressExercise, bodyMetric: ui.bodyMetric, rowMetric: ui.rowMetric })); } catch { /* ignorer */ } };
 
@@ -262,9 +265,12 @@ function strengthLog() {
   }
 
   const names = allExerciseNames();
+  const editing = s.workouts.some((w) => w.id === d.id);
   return `
     <div class="card">
-      <h2>Velg økt</h2>${dayChips}
+      ${editing
+        ? `<h2>Rediger økt</h2><p class="muted small" style="margin-top:-4px">${esc(d.dayName || 'Fri økt')} · ${fmtDate(d.date)}. Endre det som er feil og trykk «Lagre endringer».</p>`
+        : `<h2>Velg økt</h2>${dayChips}`}
       <div class="grid3">
         <div class="field"><label>Dato</label><input type="date" data-draft="date" value="${esc(d.date)}"></div>
         <div class="field"><label>Varighet (min)</label><input inputmode="numeric" data-draft="durationMin" value="${esc(d.durationMin)}"></div>
@@ -286,9 +292,11 @@ function strengthLog() {
     <div class="card">
       <div class="field"><label>Notat (dagsform, smerter, hva gikk bra …)</label><textarea data-draft="note">${esc(d.note)}</textarea></div>
       <div class="row">
-        <button class="btn" data-action="save-workout">Lagre økt</button>
+        <button class="btn" data-action="save-workout">${editing ? 'Lagre endringer' : 'Lagre økt'}</button>
         <span class="spacer"></span>
-        <button class="btn danger small" data-action="discard-workout">Forkast</button>
+        ${editing
+          ? '<button class="btn ghost small" data-action="cancel-edit-workout">Avbryt</button>'
+          : '<button class="btn danger small" data-action="discard-workout">Forkast</button>'}
       </div>
     </div>`;
 }
@@ -319,7 +327,7 @@ function strengthHistory() {
         ${w.rpe || w.durationMin ? `<div class="muted">${w.durationMin ? w.durationMin + ' min' : ''} ${w.rpe ? '· RPE ' + w.rpe : ''}</div>` : ''}
         ${w.note ? `<div class="muted">“${esc(w.note)}”</div>` : ''}
         </div>
-        <div class="row" style="margin-top:8px"><button class="btn ghost small" data-action="edit-workout" data-id="${w.id}">Rediger</button>
+        <div class="row" style="margin-top:8px"><button class="btn secondary small" data-action="edit-workout" data-id="${w.id}">✎ Rediger</button>
         <button class="btn danger small" data-action="delete-workout" data-id="${w.id}">Slett</button></div>
       </details></li>`).join('')}</ul></div>`;
 }
@@ -384,28 +392,34 @@ function viewRow() {
   s.rows.forEach((r) => { const k = isoWeek(r.date); weeks[k] = (weeks[k] || 0) + (Number(r.distance) || 0); });
   const wk = Object.keys(weeks).sort().slice(-10).map((k) => ({ label: k.split('-U')[1], value: weeks[k] / 1000 }));
 
-  const sess = rowSessionFor(today());
-  const defType = sess?.kind || 'Rolig';
+  const ed = ui.editRowId ? S().rows.find((r) => r.id === ui.editRowId) : null;
+  const sess = ed ? null : rowSessionFor(today());
+  const defType = ed ? ed.type : sess?.kind || 'Rolig';
+  const v = (k) => (ed && ed[k] != null && ed[k] !== '' ? `value="${esc(ed[k])}"` : '');
   return `
-    <div class="card">
-      <h2>Ny roøkt</h2>
+    <div class="card" id="rowCard">
+      <h2>${ed ? 'Rediger roøkt' : 'Ny roøkt'}</h2>
+      ${ed ? `<p class="muted small" style="margin-top:-4px">${fmtDate(ed.date)}. Endre det som er feil og trykk «Lagre endringer».</p>` : ''}
       ${sess ? `<div class="tip"><b>Uke ${sess.week} – ${esc(sess.phase)}:</b> ${esc(sess.desc)}<br><span class="small">${esc(sess.target)}</span></div>` : ''}
       <form id="rowForm">
         <div class="grid2">
-          <div class="field"><label>Dato</label><input type="date" name="date" value="${today()}"></div>
+          <div class="field"><label>Dato</label><input type="date" name="date" value="${ed ? esc(ed.date) : today()}"></div>
           <div class="field"><label>Type</label><select name="type">${ROW_TYPES.map((t) => `<option ${t === defType ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
-          <div class="field"><label>Distanse (m)</label><input name="distance" inputmode="numeric" placeholder="${defType.startsWith('Test') ? '2000' : '4000'}" ${defType === 'Test 2000 m' ? 'value="2000"' : ''} required></div>
-          <div class="field"><label>Tid (mm:ss eller t:mm:ss)</label><input name="time" placeholder="${sess && /(\d+) min rolig/.test(sess.desc) ? sess.desc.match(/(\d+) min/)[1] + ':00' : '20:00'}" required></div>
-          <div class="field"><label>Tak/min (snitt)</label><input name="spm" inputmode="numeric" placeholder="18–22"></div>
-          <div class="field"><label>Damper (1–10)</label><input name="damper" inputmode="decimal" placeholder="3–5"></div>
-          <div class="field"><label>Snittwatt (tom = beregnes)</label><input name="watt" inputmode="numeric"></div>
-          <div class="field"><label>Snittpuls</label><input name="hr" inputmode="numeric"></div>
-          <div class="field"><label>Kcal</label><input name="kcal" inputmode="numeric"></div>
-          <div class="field"><label>Dragfaktor (valgfritt)</label><input name="drag" inputmode="numeric"></div>
+          <div class="field"><label>Distanse (m)</label><input name="distance" inputmode="numeric" placeholder="${defType.startsWith('Test') ? '2000' : '4000'}" ${ed ? v('distance') : defType === 'Test 2000 m' ? 'value="2000"' : ''} required></div>
+          <div class="field"><label>Tid (mm:ss eller t:mm:ss)</label><input name="time" placeholder="${sess && /(\d+) min rolig/.test(sess.desc) ? sess.desc.match(/(\d+) min/)[1] + ':00' : '20:00'}" ${ed ? `value="${esc(timeVal(ed.timeSec))}"` : ''} required></div>
+          <div class="field"><label>Tak/min (snitt)</label><input name="spm" inputmode="numeric" placeholder="18–22" ${v('spm')}></div>
+          <div class="field"><label>Damper (1–10)</label><input name="damper" inputmode="decimal" placeholder="3–5" ${v('damper')}></div>
+          <div class="field"><label>Snittwatt (tom = beregnes)</label><input name="watt" inputmode="numeric" ${v('watt')}></div>
+          <div class="field"><label>Snittpuls</label><input name="hr" inputmode="numeric" ${v('hr')}></div>
+          <div class="field"><label>Kcal</label><input name="kcal" inputmode="numeric" ${v('kcal')}></div>
+          <div class="field"><label>Dragfaktor (valgfritt)</label><input name="drag" inputmode="numeric" ${v('drag')}></div>
         </div>
-        <div class="field"><label>Notat / intervaller / hvordan kjentes rygg, fingre, ankler?</label><textarea name="note">${sess && sess.kind !== 'Rolig' ? esc(sess.desc) : ''}</textarea></div>
+        <div class="field"><label>Notat / intervaller / hvordan kjentes rygg, fingre, ankler?</label><textarea name="note">${ed ? esc(ed.note || '') : sess && sess.kind !== 'Rolig' ? esc(sess.desc) : ''}</textarea></div>
         <div id="rowPreview" class="muted small" style="margin-bottom:8px"></div>
-        <button class="btn" type="submit">Lagre roøkt</button>
+        <div class="row">
+          <button class="btn" type="submit">${ed ? 'Lagre endringer' : 'Lagre roøkt'}</button>
+          ${ed ? '<span class="spacer"></span><button class="btn ghost small" type="button" data-action="cancel-edit-row">Avbryt</button>' : ''}
+        </div>
       </form>
     </div>
 
@@ -437,7 +451,8 @@ function viewRow() {
         ${isEasy(r) && splitPer500(r) < EASY_SPLIT[0] - 0.5 ? '<div class="small" style="color:var(--warn)">⚠️ For raskt til rolig økt (mål 2:35–2:40)</div>' : ''}
         ${isEasy(r) && r.spm > 22 ? '<div class="small" style="color:var(--warn)">⚠️ Tak/min over 22</div>' : ''}
         ${r.note ? `<div class="small">“${esc(r.note)}”</div>` : ''}
-        <button class="btn danger small" style="margin-top:6px" data-action="delete-row" data-id="${r.id}">Slett</button></li>`).join('')}</ul>` : '<div class="empty">Ingen roøkter ennå.</div>'}
+        <div class="row" style="margin-top:6px"><button class="btn secondary small" data-action="edit-row" data-id="${r.id}">✎ Rediger</button>
+        <button class="btn danger small" data-action="delete-row" data-id="${r.id}">Slett</button></div></li>`).join('')}</ul>` : '<div class="empty">Ingen roøkter ennå.</div>'}
     </div>`;
 }
 
@@ -505,16 +520,20 @@ function viewBody() {
   const pts = B.filter((b) => b[metric[0]]).map((b) => ({ x: b.date, y: Number(b[metric[0]]) }));
   const first = pts[0], last = pts[pts.length - 1];
   const diff = first && last && pts.length > 1 ? last.y - first.y : null;
+  const eb = ui.editBodyId ? B.find((b) => b.id === ui.editBodyId) : null;
   return `
     ${goalCard(B)}
     <div class="card">
-      <h2>Ny måling (Tanita)</h2>
+      <h2>${eb ? 'Rediger måling' : 'Ny måling (Tanita)'}</h2>
       <form id="bodyForm">
-        <div class="field"><label>Dato</label><input type="date" name="date" value="${today()}"></div>
-        <div class="grid2">${BODY_FIELDS.map(([k, l, u]) => `<div class="field"><label>${l}${u ? ` (${u})` : ''}</label><input name="${k}" inputmode="decimal"></div>`).join('')}</div>
-        <div class="field"><label>Notat</label><input name="note"></div>
+        <div class="field"><label>Dato</label><input type="date" name="date" value="${eb ? esc(eb.date) : today()}"></div>
+        <div class="grid2">${BODY_FIELDS.map(([k, l, u]) => `<div class="field"><label>${l}${u ? ` (${u})` : ''}</label><input name="${k}" inputmode="decimal" ${eb && eb[k] ? `value="${esc(String(eb[k]).replace('.', ','))}"` : ''}></div>`).join('')}</div>
+        <div class="field"><label>Notat</label><input name="note" ${eb && eb.note ? `value="${esc(eb.note)}"` : ''}></div>
         <p class="muted small">Fredag morgen etter toalettet, før frokost. Midjen måles i navlehøyde etter en rolig utpust. Fyll inn det du har – alle felt er valgfrie.</p>
-        <button class="btn" type="submit">Lagre måling</button>
+        <div class="row">
+          <button class="btn" type="submit">${eb ? 'Lagre endringer' : 'Lagre måling'}</button>
+          ${eb ? '<span class="spacer"></span><button class="btn ghost small" type="button" data-action="cancel-edit-body">Avbryt</button>' : ''}
+        </div>
       </form>
     </div>
     <div class="card">
@@ -527,7 +546,7 @@ function viewBody() {
       <h2>Alle målinger</h2>
       ${B.length ? `<div style="overflow-x:auto"><table class="tbl"><tr><th>Dato</th>${BODY_FIELDS.filter((f) => B.some((b) => b[f[0]])).map((f) => `<th>${f[1]}</th>`).join('')}<th></th></tr>
         ${[...B].reverse().map((b) => `<tr><td style="white-space:nowrap">${fmtDate(b.date)}</td>${BODY_FIELDS.filter((f) => B.some((x) => x[f[0]])).map((f) => `<td>${b[f[0]] ? fmtNum(b[f[0]]) : ''}</td>`).join('')}
-        <td><button class="x" data-action="delete-body" data-id="${b.id}" aria-label="Slett">✕</button></td></tr>`).join('')}</table></div>` : '<div class="empty">Ingen målinger ennå.</div>'}
+        <td style="white-space:nowrap"><button class="x" data-action="edit-body" data-id="${b.id}" aria-label="Rediger">✎</button><button class="x" data-action="delete-body" data-id="${b.id}" aria-label="Slett">✕</button></td></tr>`).join('')}</table></div>` : '<div class="empty">Ingen målinger ennå.</div>'}
     </div>`;
 }
 
@@ -883,10 +902,10 @@ document.addEventListener('click', async (e) => {
       if (!d.exercises.some((ex) => ex.sets.length)) return toast('Før inn minst ett sett med reps');
       d.exercises = d.exercises.filter((ex) => ex.sets.length);
       const idx = s.workouts.findIndex((w) => w.id === d.id);
-      const rec = { ...d, createdAt: Date.now() };
+      const rec = idx >= 0 ? { ...d, createdAt: d.createdAt || Date.now(), editedAt: Date.now() } : { ...d, createdAt: Date.now() };
       if (idx >= 0) s.workouts[idx] = rec; else s.workouts.push(rec);
       s.draft = null; save();
-      toast('Økt lagret 💪');
+      toast(idx >= 0 ? 'Endringer lagret' : 'Økt lagret 💪');
       ui.strengthSub = 'history'; saveUi();
       return render();
     }
@@ -895,13 +914,30 @@ document.addEventListener('click', async (e) => {
       s.draft = null; save(); return render();
     case 'edit-workout': {
       const w = s.workouts.find((x) => x.id === el.dataset.id);
+      if (!w) return;
+      const d = s.draft;
+      const unsaved = d && !s.workouts.some((x) => x.id === d.id) && d.exercises.some((x) => x.sets.some((st) => st.r));
+      if (unsaved && !confirm('Du har en ny økt som ikke er lagret. Forkaste den og redigere denne?')) return;
       s.draft = structuredClone(w); save();
-      ui.strengthSub = 'log'; return render();
+      ui.strengthSub = 'log'; saveUi(); render(); return window.scrollTo(0, 0);
     }
+    case 'cancel-edit-workout':
+      s.draft = null; save();
+      ui.strengthSub = 'history'; saveUi(); return render();
     case 'delete-workout':
       if (!confirm('Slette økten?')) return;
       s.workouts = s.workouts.filter((w) => w.id !== el.dataset.id); save(); return render();
 
+    case 'edit-row':
+      ui.editRowId = el.dataset.id; render();
+      return $('#rowCard')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    case 'cancel-edit-row':
+      ui.editRowId = ''; return render();
+    case 'edit-body':
+      ui.editBodyId = el.dataset.id; render();
+      return $('#bodyForm')?.closest('.card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    case 'cancel-edit-body':
+      ui.editBodyId = ''; return render();
     case 'delete-row':
       if (!confirm('Slette roøkten?')) return;
       s.rows = s.rows.filter((r) => r.id !== el.dataset.id); save(); return render();
@@ -1074,9 +1110,12 @@ document.addEventListener('submit', async (e) => {
       if (!distance || !isFinite(timeSec) || timeSec <= 0) return toast('Sjekk distanse og tid (f.eks. 21:30)');
       const date = fd.date || today();
       const planned = rowSessionFor(date);
-      const rec = { id: uid(), date, type: fd.type, distance, timeSec, spm: num(fd.spm), damper: num(fd.damper), watt: num(fd.watt), hr: num(fd.hr), kcal: num(fd.kcal), drag: num(fd.drag), week: planned?.week || rowWeek(date) || '', planned: planned?.desc || '', note: fd.note.trim() };
-      s.rows.push(rec);
+      const old = ui.editRowId ? s.rows.find((r) => r.id === ui.editRowId) : null;
+      const rec = { id: old ? old.id : uid(), date, type: fd.type, distance, timeSec, spm: num(fd.spm), damper: num(fd.damper), watt: num(fd.watt), hr: num(fd.hr), kcal: num(fd.kcal), drag: num(fd.drag), week: planned?.week || rowWeek(date) || '', planned: planned?.desc || '', note: fd.note.trim() };
+      if (old) s.rows[s.rows.indexOf(old)] = rec; else s.rows.push(rec);
+      ui.editRowId = '';
       save();
+      if (old) { toast('Endringer lagret'); return render(); }
       const sp = splitPer500(rec);
       if (isEasy(rec) && sp < EASY_SPLIT[0] - 0.5) toast(`Lagret – men ${fmtTime(sp, 1)}/500 er for raskt for rolig. Neste gang: 2:35–2:40.`);
       else if (isEasy(rec) && rec.spm > 22) toast('Lagret – hold tak/min på 18–22 på rolige økter.');
@@ -1085,10 +1124,13 @@ document.addEventListener('submit', async (e) => {
       return render();
     }
     case 'bodyForm': {
-      const rec = { id: uid(), date: fd.date || today(), note: fd.note.trim() };
+      const old = ui.editBodyId ? s.body.find((b) => b.id === ui.editBodyId) : null;
+      const rec = { id: old ? old.id : uid(), date: fd.date || today(), note: fd.note.trim() };
       BODY_FIELDS.forEach(([k]) => { rec[k] = num(fd[k]); });
       if (!BODY_FIELDS.some(([k]) => rec[k])) return toast('Fyll inn minst én måling');
-      s.body.push(rec); save(); toast('Måling lagret'); return render();
+      if (old) s.body[s.body.indexOf(old)] = rec; else s.body.push(rec);
+      ui.editBodyId = '';
+      save(); toast(old ? 'Endringer lagret' : 'Måling lagret'); return render();
     }
     case 'foodForm':
     case 'mealPlanForm': {
