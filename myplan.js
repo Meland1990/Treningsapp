@@ -12,9 +12,9 @@
 //   settings: valgfritt, f.eks. { kcalTarget: 2000, proteinTarget: 170, rowStartDate: '2026-11-09' }
 // ---------------------------------------------------------------------------
 export const PLAN_UPDATE = {
-  revision: 4,
+  revision: 5,
   date: '2026-11-15',
-  note: 'Uke 2: 3 × 20 min rolig. Start de første 5 minuttene på 2:38–2:40, og slakk 3 sek med en gang pulsen passerer 163 – da holder du deg under 165 hele økta. Tipsene på forsiden er også rettet: vekttrenden regnes nå bare fra de ukentlige målingene.',
+  note: 'Lagt inn i planen: manualer logges som kg per hånd, stang og maskin som total vekt. Ellers ingen endringer.',
   parts: ['plan'],
   settings: {},
 };
@@ -99,6 +99,7 @@ export const MY_PLAN = {
       intro: 'Oppvarming: 5 min rolig på sykkel eller romaskin, og 2 lette sett av første øvelse.',
       items: [
         'Startvektene står i notatet på hver øvelse. Bruk samme vekt i alle tre settene.',
+        'Manualer logges som kg per hånd (22 kg skrå manualpress = 22 kg i hver hånd). Stang og maskin logges som total vekt.',
         'Hvert sett skal ende tungt, men med 1–2 repetisjoner igjen i tanken.',
         'Øk vekten først når du klarer toppen av intervallet i alle tre settene, til vekten som står i notatet. Start nederst i intervallet igjen.',
         'Pause 1,5–2 min på øvelse 1 og 2, ca. 1 min på resten.',
