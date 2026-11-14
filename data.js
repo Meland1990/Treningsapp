@@ -339,9 +339,12 @@ export function weightRate() {
   const W = state.body.filter((b) => b.weight).sort((a, b) => a.date.localeCompare(b.date));
   if (W.length < 2) return null;
   const last = W[W.length - 1];
-  const ref = [...W].reverse().find((b) => daysAgo(b.date) - daysAgo(last.date) >= 13) || W[0];
-  const weeks = (daysAgo(ref.date) - daysAgo(last.date)) / 7;
-  if (weeks < 0.9) return null;
+  // Sammenlign med målingen ca. 2 uker før (13–21 dager). Eldre målinger gir
+  // et misvisende snitt, så da venter vi heller på flere ukentlige målinger.
+  const gap = (b) => daysAgo(b.date) - daysAgo(last.date);
+  const ref = [...W].reverse().find((b) => gap(b) >= 13 && gap(b) <= 21);
+  if (!ref) return null;
+  const weeks = gap(ref) / 7;
   return { perWeek: (last.weight - ref.weight) / weeks, weeks, from: ref, to: last };
 }
 
@@ -355,7 +358,10 @@ export function generateTips() {
 
   // --- Roing: spillereglene ---
   const recentEasy = sortedR.filter((r) => isEasy(r) && daysAgo(r.date) < 14);
-  const tooFast = recentEasy.filter((r) => splitPer500(r) < EASY_SPLIT[0] - 0.5);
+  // Splitt under 1:30 er nesten alltid en feilregistrering (f.eks. tid 0:15 i stedet for 15:00).
+  const tooFast = recentEasy.filter((r) => splitPer500(r) >= 90 && splitPer500(r) < EASY_SPLIT[0] - 0.5);
+  const suspect = recentEasy.filter((r) => splitPer500(r) > 0 && splitPer500(r) < 90);
+  if (suspect.length) tips.push({ kind: 'warn', text: `Roøkta ${fmtDate(suspect[0].date)} ser feilregistrert ut (splitt ${fmtTime(splitPer500(suspect[0]), 1)}/500). Sjekk tid og distanse – tid skrives som mm:ss, f.eks. 15:00.` });
   if (tooFast.length) {
     tips.push({ kind: 'warn', text: `${tooFast.length} av de siste rolige roøktene gikk raskere enn 2:35/500 (sist ${fmtTime(splitPer500(tooFast[0]), 1)}). Rolig betyr rolig – du skal kunne snakke i hele setninger. Det er dette som hindrer at du går tom.` });
   } else if (recentEasy.length >= 3) {
@@ -377,7 +383,7 @@ export function generateTips() {
   const dates = [...new Set(s.rows.map((r) => r.date))].sort();
   for (let i = 1; i < dates.length; i++) {
     const w = rowWeek(dates[i]);
-    if (w && w <= 4 && daysAgo(dates[i - 1]) - daysAgo(dates[i]) === 1 && daysAgo(dates[i]) < 7) {
+    if (w && rowWeek(dates[i - 1]) && w <= 4 && daysAgo(dates[i - 1]) - daysAgo(dates[i]) === 1 && daysAgo(dates[i]) < 7) {
       tips.push({ kind: 'warn', text: 'To roøkter på rad denne uka. De første fire ukene skal det være minst én dag mellom, for rygg, fingre og ankler.' });
       break;
     }

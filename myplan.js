@@ -12,9 +12,9 @@
 //   settings: valgfritt, f.eks. { kcalTarget: 2000, proteinTarget: 170, rowStartDate: '2026-11-09' }
 // ---------------------------------------------------------------------------
 export const PLAN_UPDATE = {
-  revision: 3,
+  revision: 4,
   date: '2026-11-15',
-  note: 'Uke 2: 3 × 20 min rolig. Start de første 5 minuttene på 2:38–2:40, og slakk 3 sek med en gang pulsen passerer 163 – da holder du deg under 165 hele økta.',
+  note: 'Uke 2: 3 × 20 min rolig. Start de første 5 minuttene på 2:38–2:40, og slakk 3 sek med en gang pulsen passerer 163 – da holder du deg under 165 hele økta. Tipsene på forsiden er også rettet: vekttrenden regnes nå bare fra de ukentlige målingene.',
   parts: ['plan'],
   settings: {},
 };
@@ -59,7 +59,7 @@ export const MY_PLAN = {
   schedule: {
     Mandag: 'row', Tirsdag: 'a', Onsdag: 'row', Torsdag: 'rest', Fredag: 'b', Lørdag: 'row', Søndag: 'rest',
   },
-  rowing: 'Tre roøkter hjemme (man, ons, lør). Rolig = 2:35–2:40/500 (første 5 min 2:38–2:40), 18–22 tak/min, damper 3–5. Pulsen under 165; passerer den 163, slakk 3 sek med en gang og skal flate ut etter oppvarmingen; kryper den over, slakk 3–5 sek på splitten med en gang. Ingen spurt på slutten – avslutt heller med 3 × 10 harde tak etter at klokka har stoppet. Maks én hard økt i uka, tidligst fra uke 3 hvis alle økter er gjennomført uten ryggplager.',
+  rowing: 'Tre roøkter hjemme (man, ons, lør). Rolig = 2:35–2:40/500 (første 5 min 2:38–2:40), 18–22 tak/min, damper 3–5. Pulsen under 165 og skal flate ut etter oppvarmingen; passerer den 163, slakk 3 sek på splitten med en gang. Ingen spurt på slutten – avslutt heller med 3 × 10 harde tak etter at klokka har stoppet. Maks én hard økt i uka, tidligst fra uke 3 hvis alle økter er gjennomført uten ryggplager.',
   // 12 uker i tre faser. Startdato settes under Innstillinger.
   rowProgram: [
     { phase: 'Grunnform', sessions: { Mandag: '15 min rolig', Onsdag: '15 min rolig', Lørdag: '15 min rolig' } },
