@@ -12,9 +12,9 @@
 //   settings: valgfritt, f.eks. { kcalTarget: 2000, proteinTarget: 170, rowStartDate: '2026-11-09' }
 // ---------------------------------------------------------------------------
 export const PLAN_UPDATE = {
-  revision: 5,
-  date: '2026-11-15',
-  note: 'Lagt inn i planen: manualer logges som kg per hånd, stang og maskin som total vekt. Ellers ingen endringer.',
+  revision: 6,
+  date: '2026-11-18',
+  note: 'Nye vekter på økt A etter onsdagens økt: benk 65 kg, skrå manualpress 24 kg, skulderpress 14 kg, sidehev 6 kg og pushdown 32,5 kg. Økt B er uendret.',
   parts: ['plan'],
   settings: {},
 };
@@ -26,11 +26,11 @@ export const MY_PLAN = {
     {
       id: 'a', name: 'Økt A – bryst, skuldre, triceps',
       exercises: [
-        { name: 'Benkpress med stang', sets: 3, reps: '6-10', note: '60 kg i alle sett. Ved 3 × 10 → 62,5 kg. Pause 1,5–2 min. Føttene flatt, uten stor svai.' },
-        { name: 'Skrå manualpress', sets: 3, reps: '8-12', note: '20 kg i alle sett. Ved 3 × 12 → 22 kg. Pause 1,5–2 min.' },
-        { name: 'Skulderpress med manualer', sets: 3, reps: '8-12', note: '12 kg i alle sett. Ved 3 × 12 → 14 kg. Sittende med ryggstøtte.' },
-        { name: 'Sidehev med manualer', sets: 3, reps: '12-15', note: '5 kg (6 kg hvis 5 ikke finnes). Ved 3 × 15 → neste manual.' },
-        { name: 'Triceps pushdown i kabel', sets: 3, reps: '10-15', note: '27,5 kg i alle sett, V-stang. Ved 3 × 15 → 30 kg.' },
+        { name: 'Benkpress med stang', sets: 3, reps: '6-10', note: '65 kg i alle sett. Ved 3 × 10 → 67,5 kg. Pause 1,5–2 min. Føttene flatt, uten stor svai.' },
+        { name: 'Skrå manualpress', sets: 3, reps: '8-12', note: '24 kg i alle sett. Ved 3 × 12 → 26 kg. Pause 1,5–2 min.' },
+        { name: 'Skulderpress med manualer', sets: 3, reps: '8-12', note: '14 kg i alle sett. Ved 3 × 12 → 16 kg. Sittende med ryggstøtte.' },
+        { name: 'Sidehev med manualer', sets: 3, reps: '12-15', note: '6 kg i alle sett. Ved 3 × 15 → neste manual.' },
+        { name: 'Triceps pushdown i kabel', sets: 3, reps: '10-15', note: '32,5 kg i alle sett, V-stang. Ved 3 × 15 → 35 kg.' },
       ],
     },
     {
@@ -46,12 +46,12 @@ export const MY_PLAN = {
     {
       id: 'c', name: 'Økt C – helkropp (når det bare blir én økt)',
       exercises: [
-        { name: 'Benkpress med stang', sets: 3, reps: '6-10', note: '60 kg i alle sett. Pause 1,5–2 min.' },
-        { name: 'Skrå manualpress', sets: 3, reps: '8-12', note: '20 kg i alle sett.' },
+        { name: 'Benkpress med stang', sets: 3, reps: '6-10', note: '65 kg i alle sett. Pause 1,5–2 min.' },
+        { name: 'Skrå manualpress', sets: 3, reps: '8-12', note: '24 kg i alle sett.' },
         { name: 'Nedtrekk, bredt grep', sets: 3, reps: '8-12', note: '50 kg i alle sett.' },
-        { name: 'Skulderpress med manualer', sets: 3, reps: '8-12', note: '12 kg. Sittende med ryggstøtte.' },
+        { name: 'Skulderpress med manualer', sets: 3, reps: '8-12', note: '14 kg. Sittende med ryggstøtte.' },
         { name: 'Bicepscurl med manualer', sets: 3, reps: '10-12', note: '12 kg. Supersett med pushdown, uten pause.' },
-        { name: 'Triceps pushdown i kabel', sets: 3, reps: '10-15', note: '27,5 kg. Supersett med curl, 3 runder.' },
+        { name: 'Triceps pushdown i kabel', sets: 3, reps: '10-15', note: '32,5 kg. Supersett med curl, 3 runder.' },
       ],
     },
   ],
