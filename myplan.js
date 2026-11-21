@@ -12,9 +12,9 @@
 //   settings: valgfritt, f.eks. { kcalTarget: 2000, proteinTarget: 170, rowStartDate: '2026-11-09' }
 // ---------------------------------------------------------------------------
 export const PLAN_UPDATE = {
-  revision: 6,
-  date: '2026-11-18',
-  note: 'Nye vekter på økt A etter onsdagens økt: benk 65 kg, skrå manualpress 24 kg, skulderpress 14 kg, sidehev 6 kg og pushdown 32,5 kg. Økt B er uendret.',
+  revision: 7,
+  date: '2026-11-21',
+  note: 'Uke 3: første harde roøkt onsdag – 3 × 6 min på puls 160–167. Nye vekter på økt B: brystpress 65, nedtrekk 55, sittende roing 55, flyes 25 og curl 14 kg.',
   parts: ['plan'],
   settings: {},
 };
@@ -36,11 +36,11 @@ export const MY_PLAN = {
     {
       id: 'b', name: 'Økt B – bryst, rygg, biceps',
       exercises: [
-        { name: 'Brystpress i maskin', sets: 3, reps: '8-12', note: '55 kg i alle sett. Ved 3 × 12 → 60 kg. Pause 1,5–2 min.' },
-        { name: 'Nedtrekk, bredt grep', sets: 3, reps: '8-12', note: '50 kg i alle sett. Ved 3 × 12 → 55 kg. Pause 1,5–2 min.' },
-        { name: 'Sittende roing med brystpute', sets: 3, reps: '10-12', note: '45 kg i alle sett. Ved 3 × 12 → 50 kg.' },
-        { name: 'Flyes i kabel eller pec deck', sets: 3, reps: '12-15', note: '15 kg i alle sett. Ved 3 × 15 → neste vekt.' },
-        { name: 'Bicepscurl med manualer', sets: 3, reps: '10-12', note: '12 kg i alle sett. Ved 3 × 12 → 14 kg.' },
+        { name: 'Brystpress i maskin', sets: 3, reps: '8-12', note: '65 kg i alle sett. Ved 3 × 12 → 70 kg. Pause 1,5–2 min.' },
+        { name: 'Nedtrekk, bredt grep', sets: 3, reps: '8-12', note: '55 kg i alle sett. Ved 3 × 12 → 60 kg. Pause 1,5–2 min.' },
+        { name: 'Sittende roing med brystpute', sets: 3, reps: '10-12', note: '55 kg i alle sett. Ved 3 × 12 → 60 kg.' },
+        { name: 'Flyes i kabel eller pec deck', sets: 3, reps: '12-15', note: '25 kg i alle sett. Ved 3 × 15 → neste vekt.' },
+        { name: 'Bicepscurl med manualer', sets: 3, reps: '10-12', note: '14 kg i alle sett. Ved 3 × 12 → 16 kg.' },
       ],
     },
     {
@@ -48,9 +48,9 @@ export const MY_PLAN = {
       exercises: [
         { name: 'Benkpress med stang', sets: 3, reps: '6-10', note: '65 kg i alle sett. Pause 1,5–2 min.' },
         { name: 'Skrå manualpress', sets: 3, reps: '8-12', note: '24 kg i alle sett.' },
-        { name: 'Nedtrekk, bredt grep', sets: 3, reps: '8-12', note: '50 kg i alle sett.' },
+        { name: 'Nedtrekk, bredt grep', sets: 3, reps: '8-12', note: '55 kg i alle sett.' },
         { name: 'Skulderpress med manualer', sets: 3, reps: '8-12', note: '14 kg. Sittende med ryggstøtte.' },
-        { name: 'Bicepscurl med manualer', sets: 3, reps: '10-12', note: '12 kg. Supersett med pushdown, uten pause.' },
+        { name: 'Bicepscurl med manualer', sets: 3, reps: '10-12', note: '14 kg. Supersett med pushdown, uten pause.' },
         { name: 'Triceps pushdown i kabel', sets: 3, reps: '10-15', note: '32,5 kg. Supersett med curl, 3 runder.' },
       ],
     },
@@ -64,7 +64,7 @@ export const MY_PLAN = {
   rowProgram: [
     { phase: 'Grunnform', sessions: { Mandag: '15 min rolig', Onsdag: '15 min rolig', Lørdag: '15 min rolig' } },
     { phase: 'Grunnform', sessions: { Mandag: '20 min rolig', Onsdag: '20 min rolig', Lørdag: '20 min rolig' } },
-    { phase: 'Grunnform', sessions: { Mandag: '25 min rolig', Onsdag: '25 min rolig', Lørdag: '25 min rolig' } },
+    { phase: 'Grunnform + første harde', sessions: { Mandag: '25 min rolig', Onsdag: '10 min rolig, 3 × 6 min på puls 160–167, 2 min rolig mellom, 5 min rolig', Lørdag: '25 min rolig' } },
     { phase: 'Grunnform', sessions: { Mandag: '30 min rolig', Onsdag: '30 min rolig', Lørdag: '30 min rolig' } },
     { phase: 'Fart', sessions: { Mandag: '30 min rolig', Onsdag: '4 × 4 min på 2:15–2:20, 2 min rolig mellom', Lørdag: '30 min rolig' } },
     { phase: 'Fart', sessions: { Mandag: '35 min rolig', Onsdag: '5 × 4 min på 2:15–2:20, 2 min mellom', Lørdag: '35 min rolig' } },
@@ -83,7 +83,7 @@ export const MY_PLAN = {
         'Rolig betyr rolig: 2:35–2:40/500, 18–22 tak i minuttet og pulsen under 165. Pulsen skal flate ut etter oppvarmingen.',
         'Start rolig: de første 5 minuttene på 2:38–2:40. Passerer pulsen 163, slakk 3 sek på splitten med en gang – ikke vent til neste splitt.',
         'Ingen spurt på slutten. Avslutt heller med 3 × 10 harde tak etter at klokka har stoppet.',
-        'Maks én hard økt i uka, tidligst fra uke 3 og bare hvis alle økter er gjennomført uten ryggplager.',
+        'Maks én hard økt i uka. Fra uke 3 er den tjent inn (alle økter gjennomført uten ryggplager). Hard økt = puls 160–167, aldri over 167.',
         'Damper på 3–5. Høyere damper gir mest belastning på korsryggen, ikke mer trening.',
         'Korsryggen: bein, så kropp, så armer. Ikke len deg langt bakover i enden (ca. kl. 11 holder). Ikke nå langt frem med overkroppen.',
         'Fingrene: hold håndtaket løst med fingrene som kroker. Slapp tomlene. Trette fingre = for hardt grep.',
